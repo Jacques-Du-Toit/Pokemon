@@ -3,7 +3,8 @@ import pandas as pd
 
 
 def initialise_chart() -> pd.DataFrame:
-    """Creates an 18x18 pandas DataFrame of Pokémon type effectiveness.
+    """
+    Creates a 18x18 pandas DataFrame of Pokémon type effectiveness.
        chart.loc[atk_type, def_type] = multiplier
     """
     # Define an ordered list of types (Gen 6+).
@@ -93,14 +94,14 @@ def initialise_chart() -> pd.DataFrame:
     chart.loc["poison", "fairy"]  = 2.0
 
     # --- GROUND attacking ---
-    chart.loc["ground", "fire"]    = 2.0
+    chart.loc["ground", "fire"]     = 2.0
     chart.loc["ground", "electric"] = 2.0
-    chart.loc["ground", "grass"]   = 0.5
-    chart.loc["ground", "poison"]  = 2.0
-    chart.loc["ground", "flying"]  = 0.0
-    chart.loc["ground", "bug"]     = 0.5
-    chart.loc["ground", "rock"]    = 2.0
-    chart.loc["ground", "steel"]   = 2.0
+    chart.loc["ground", "grass"]    = 0.5
+    chart.loc["ground", "poison"]   = 2.0
+    chart.loc["ground", "flying"]   = 0.0
+    chart.loc["ground", "bug"]      = 0.5
+    chart.loc["ground", "rock"]     = 2.0
+    chart.loc["ground", "steel"]    = 2.0
 
     # --- FLYING attacking ---
     chart.loc["flying", "electric"] = 0.5
@@ -130,13 +131,13 @@ def initialise_chart() -> pd.DataFrame:
     chart.loc["bug", "fairy"]    = 0.5
 
     # --- ROCK attacking ---
-    chart.loc["rock", "fire"]    = 2.0
-    chart.loc["rock", "ice"]     = 2.0
-    chart.loc["rock", "flying"]  = 2.0
-    chart.loc["rock", "bug"]     = 2.0
+    chart.loc["rock", "fire"]     = 2.0
+    chart.loc["rock", "ice"]      = 2.0
+    chart.loc["rock", "flying"]   = 2.0
+    chart.loc["rock", "bug"]      = 2.0
     chart.loc["rock", "fighting"] = 0.5
-    chart.loc["rock", "ground"]  = 0.5
-    chart.loc["rock", "steel"]   = 0.5
+    chart.loc["rock", "ground"]   = 0.5
+    chart.loc["rock", "steel"]    = 0.5
 
     # --- GHOST attacking ---
     chart.loc["ghost", "normal"]  = 0.0
@@ -176,10 +177,49 @@ def initialise_chart() -> pd.DataFrame:
     return chart
 
 
+def expand_chart(chart: pd.DataFrame) -> pd.DataFrame:
+    """
+    Adds double types to the chart.
+    """
+    types = chart.columns
+    new_cols = dict()
+
+    for i, type1 in enumerate(types[:-1]):
+        for j, type2 in enumerate(types[i+1:]):
+            new_cols[f"{type1}/{type2}"] = chart[type1] * chart[type2]
+
+    new_df = pd.DataFrame.from_dict(new_cols)
+    return pd.concat([chart, new_df], axis=1)
+
 
 def main():
     chart = initialise_chart()
-    print(chart)
+    chart = expand_chart(chart)
+    chart.to_excel("chart.xlsx")
+
+    adv = (chart > 1)
+    dis = (chart < 1)
+    # Sum across the columns to find how many advantages they have
+    strong_against = adv.sum(axis=1).sort_values(ascending=False)
+    # Sum across the rows to find how many resistances they have
+    resistant_to = dis.sum(axis=0).sort_values(ascending=False)
+
+    find_matching("grass", adv)
+
+
+def find_matching(input_type: str, adv: pd.DataFrame):
+    current = adv.copy()
+    next_type = input_type
+    types = []
+    while not current.empty:
+        print(f"Next best type: {next_type}")
+        types.append(next_type)
+        beaten_types = list(current.loc[next_type, current.loc[next_type] == True].index)
+        current.drop(beaten_types, axis=1, inplace=True)
+        print(f"Remaining types not yet effective against: {current.shape[1]}")
+        next_type = current.sum(axis=1).idxmax()
+    print(types)
+
 
 if __name__ == '__main__':
     main()
