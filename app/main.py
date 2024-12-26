@@ -204,20 +204,31 @@ def main():
     # Sum across the rows to find how many resistances they have
     resistant_to = dis.sum(axis=0).sort_values(ascending=False)
 
-    find_matching("grass", adv)
+    find_matching(["fire", "fighting"], adv)
 
 
-def find_matching(input_type: str, adv: pd.DataFrame):
+def find_matching(input_types: list[str], adv: pd.DataFrame):
+    if len(input_types) < 1:
+        print("Need at least 1 input type.")
+        return
+
     current = adv.copy()
-    next_type = input_type
-    types = []
+    types = input_types.copy()
+
+    for next_type in types:
+        beaten_types = list(current.loc[next_type, current.loc[next_type] == True].index)
+        current.drop(beaten_types, axis=1, inplace=True)
+
+    print(f"Remaining types not yet effective against: {current.shape[1]}")
+
     while not current.empty:
-        print(f"Next best type: {next_type}")
+        next_type = current.sum(axis=1).idxmax()
         types.append(next_type)
+        print(f"Next best type: {next_type}")
         beaten_types = list(current.loc[next_type, current.loc[next_type] == True].index)
         current.drop(beaten_types, axis=1, inplace=True)
         print(f"Remaining types not yet effective against: {current.shape[1]}")
-        next_type = current.sum(axis=1).idxmax()
+
     print(types)
 
 
