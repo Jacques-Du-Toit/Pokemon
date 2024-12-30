@@ -195,7 +195,7 @@ def expand_chart(chart: pd.DataFrame) -> pd.DataFrame:
 def main():
     chart = initialise_chart()
     chart = expand_chart(chart)
-    chart.to_excel("chart.xlsx")
+    chart.to_csv("chart.csv")
 
     adv = (chart > 1)
     dis = (chart < 1)
