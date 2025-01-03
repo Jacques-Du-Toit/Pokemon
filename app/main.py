@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from pandas.core.common import not_none
+from tqdm import tqdm
 
 
 def initialise_chart() -> pd.DataFrame:
@@ -251,14 +251,7 @@ def matchup_generator(chart: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def teams_of_six(chart: pd.DataFrame):
-    """
-    Generates the different teams of 6 from the different types you could have that cover all types
-    """
-    pass
-
-
-def triangle_finder(chart: pd.DataFrame):
+def triangle_finder(matchups: pd.DataFrame):
     """
     Finds all the perfect type triangles such that each type has the same effectiveness against the next type, and
     same resistance to the previous type
@@ -271,7 +264,63 @@ def triangle_finder(chart: pd.DataFrame):
     - A/B, C/D, E/F
     - (A -> x2 -> C/D) & (B -> x2 -> C/D)
     """
-    
+    df = matchups.copy()
+    df['ResB'] = df[['Res1', 'Res2']].min(axis=1)
+    df['ResS'] = df[['Res1', 'Res2']].max(axis=1)
+    df['StrB'] = df[['Str1', 'Str2']].max(axis=1)
+    df['StrS'] = df[['Str1', 'Str2']].min(axis=1)
+
+    df = df[~(
+            (df['ResB'] == 1) &
+            (df['ResS'] == 1) &
+            (df['StrB'] == 1) &
+            (df['StrS'] == 1)
+    )]
+
+    types = df['Type1'].unique()
+    triangles = []
+    tri_df = []
+    for cur_type in tqdm(types, total=len(types)):
+        cur = df[(df['Type1'] == cur_type) & (df['Type2'] != cur_type)]
+        for i, next_row in cur.iterrows():
+            next = df[
+                (df['Type2'] != cur_type) &
+                (df['Type1'] == next_row['Type2']) &
+                (df['ResB'] == next_row['ResB']) &
+                (df['ResS'] == next_row['ResS']) &
+                (df['StrB'] == next_row['StrB']) &
+                (df['StrS'] == next_row['StrS'])
+                ]
+            for j, last_row in next.iterrows():
+                if (next_row['Type2'] == last_row['Type2']) or (last_row['Type2'] == cur_type): continue
+                last = df[
+                    (df['Type1'] == last_row['Type2']) &
+                    (df['Type2'] == cur_type) &
+                    (df['ResB'] == next_row['ResB']) &
+                    (df['ResS'] == next_row['ResS']) &
+                    (df['StrB'] == next_row['StrB']) &
+                    (df['StrS'] == next_row['StrS'])
+                    ]
+                if not last.empty:
+                    new_triangle = {cur_type, next_row['Type2'], last_row['Type2'], next_row['ResB'], next_row['ResS'],
+                                    next_row['StrB'], next_row['StrS']}
+                    if new_triangle not in triangles:
+                        triangles.append(new_triangle)
+                        tri_df.append(
+                            [cur_type, next_row['Type2'], last_row['Type2'], next_row['ResB'], next_row['ResS'],
+                             next_row['StrB'], next_row['StrS']])
+
+        df = df[(df['Type1'] != cur_type) & (df['Type2'] != cur_type)]
+    tri_df = pd.DataFrame(columns=['1', '2', '3', 'Res Big', 'Res Small', 'Str Big', 'Str Small'], data=tri_df)
+    return tri_df
+
+
+def teams_of_six(chart: pd.DataFrame):
+    """
+    Generates the different teams of 6 from the different types you could have that cover all types
+    """
+    pass
+
 
 def main():
     chart = initialise_chart()
@@ -279,6 +328,9 @@ def main():
 
     chart.to_csv("chart.csv")
 
+    matchups = matchup_generator(chart)
+    triangles = triangle_finder(matchups)
+    print(triangles)
 
     adv = (chart > 1)
     dis = (chart < 1)
