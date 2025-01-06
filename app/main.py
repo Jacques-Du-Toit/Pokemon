@@ -248,6 +248,7 @@ def matchup_generator(chart: pd.DataFrame) -> pd.DataFrame:
     df = pd.DataFrame(columns=["Type1", "Type2", "Res1", "Res2", "Str1", "Str2"], data=rows)
     df['Res'] = df[['Res1', 'Res2']].max(axis=1)
     df['Str'] = df[['Str1', 'Str2']].max(axis=1)
+    df["S"] = df["Str"] - df["Res"]
     return df
 
 
@@ -263,6 +264,20 @@ def triangle_finder(matchups: pd.DataFrame):
     e.g.
     - A/B, C/D, E/F
     - (A -> x2 -> C/D) & (B -> x2 -> C/D)
+
+    Parameters:
+    ----------
+    matchups : pd.DataFrame
+        A DataFrame containing type interaction data with columns:
+        - 'Type1', 'Type2': Types involved in the interaction.
+        - 'Res1', 'Res2': Resistance values for dual types.
+        - 'Str1', 'Str2': Strength values for dual types.
+
+    Returns:
+    -------
+    pd.DataFrame
+        A DataFrame containing all valid type triangles with columns:
+        ['Type1', 'Type2', 'Type3', 'Res Big', 'Res Small', 'Str Big', 'Str Small'].
     """
     df = matchups.copy()
     df['ResB'] = df[['Res1', 'Res2']].min(axis=1)
@@ -315,36 +330,80 @@ def triangle_finder(matchups: pd.DataFrame):
     return tri_df
 
 
-def teams_of_six(chart: pd.DataFrame):
-    """
-    Generates the different teams of 6 from the different types you could have that cover all types
-    """
-    pass
+def best_counter(group: pd.DataFrame, overall: dict) -> None:
+    """Updates the 'overall' dict with the values of how well a type counters other types"""
+    group["rank"] = group["S"].rank(pct=True)
+    for _, row in group.iterrows():
+        so_far = overall.get(row["Type1"], [0, 0])
+        so_far[0] += row["rank"]
+        so_far[1] += 1
+        overall[row["Type1"]] = so_far
 
 
-def main():
+def team_of_six(matchups: pd.DataFrame) -> list[str]:
+    df = matchups[matchups["Str"] >= 2].copy()
+    df['1'] = df['Type1'].apply(lambda row: row.split("/")[0])
+    df['2'] = df['Type1'].apply(lambda row: row.split("/")[-1])
+
+    found = []
+    while len(found) < 6:
+        overall = {}
+        df.groupby("Type2").apply(lambda group: best_counter(group, overall), include_groups=False)
+        scores = pd.DataFrame(overall).T
+        #print(scores.sort_values(0, ascending=False).head(10))
+        next_best = scores[0].idxmax()
+        found.append(next_best)
+        #for p_type in next_best.split("/"):
+        #    df = df[(df["1"] != p_type) & (df["2"] != p_type)]
+        types_already_countered = df[(df["Type1"] == next_best) & (df["S"] >= 1)]["Type2"].unique()
+        df = df[~df["Type2"].isin(types_already_countered)]
+    return found
+
+
+def check_team(chart: pd.DataFrame, team: list[str]) -> None:
+    left = chart.copy()
+    for poke in team:
+        for p_type in poke.split("/"):
+            a = left.loc[p_type, :]
+            left = left[a[(a < 2)].index]
+        if len(left.columns) <= 0:
+            print("Effective against all types")
+            return
+    print(f"Warning - team is not effective against {left.columns}")
+
+
+def find_best_counter(poke: str, team: list[str], matchups: pd.DataFrame) -> pd.DataFrame:
+    if poke not in matchups["Type2"].unique():
+        poke = poke.split("/")
+        poke = "/".join([poke[-1], poke[0]])
+    return matchups[(matchups["Type2"]==poke) & (matchups["Type1"].isin(team))].sort_values("S", ascending=False)
+
+
+def create_charts():
     chart = initialise_chart()
     chart = expand_chart(chart)
-
     chart.to_csv("chart.csv")
 
     matchups = matchup_generator(chart)
-    triangles = triangle_finder(matchups)
-    print(triangles)
+    matchups.to_csv("matchups.csv", index=False)
 
-    adv = (chart > 1)
-    dis = (chart < 1)
-    # Sum across the columns to find how many advantages they have
-    strong_against = adv.sum(axis=1).sort_values(ascending=False)
-    # Sum across the rows to find how many resistances they have
-    resistant_to = dis.sum(axis=0).sort_values(ascending=False)
+    return chart, matchups
 
-    # Sums up how effective things are against it - giving types that are overall the most resistant
-    general_resistance = chart.sum(axis=0).sort_values()
-    #print(general_resistance)
 
-    find_matching([], adv)
+def main():
+    chart = pd.read_csv("chart.csv", index_col=0)
+    matchups = pd.read_csv("matchups.csv")
 
+    #triangles = triangle_finder(matchups)
+
+    team = team_of_six(matchups)
+    print(team)
+
+    #team = ['fire/ground', 'rock/steel', 'fighting/dark', 'water/fairy', 'ice/flying', 'grass/ghost']
+
+    check_team(chart, team)
+
+    print(find_best_counter("electric/flying", team, matchups))
 
 if __name__ == '__main__':
     main()
