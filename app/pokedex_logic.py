@@ -13,7 +13,37 @@ def get_html(url):
     return soup
 
 
-def prev_next_evo(row):
+def get_pokedex_soup(game_soup: BeautifulSoup) -> BeautifulSoup:
+    # Find the main body so we skip the title
+    next_link = game_soup.find('main').find('a')
+    while next_link:
+        if next_link['href'].startswith('/pokedex/'):
+            return get_html(base_url + next_link['href'])
+        next_link = next_link.find_next('a')
+    raise ValueError("Couldn't find a link to a pokedex")
+
+
+def extract_evolutions(pokemon_soup: BeautifulSoup) -> list[str]:
+    evolutions_moves = pokemon_soup.find_all('a', class_='ent-name')
+    # regional variants increase this to 3 - need to be accounted for
+    evolutions = [item.text for item in evolutions_moves if item['href'].startswith('/pokedex/')][:3]
+    evolutions = list(dict.fromkeys(evolutions))
+    return evolutions
+
+
+def extract_stats(pokemon_soup: BeautifulSoup) -> list[str]:
+    stats = pokemon_soup.find('div', id='dex-stats')
+    all_stats = []
+    next_stat = stats.find_next('tr')
+    this_stat = next_stat.text.split('\n')
+    for _ in range(7):
+        all_stats.append(this_stat[2])
+        next_stat = next_stat.find_next('tr')
+        this_stat = next_stat.text.split('\n')
+    return all_stats
+
+
+def prev_next_evo(row) -> pd.Series:
     prev, next = None, None
     evo_line = [row['Evo 1'], row['Evo 2'], row['Evo 3']]
 
@@ -30,30 +60,9 @@ def prev_next_evo(row):
     return pd.Series([prev, next])
 
 
-def extract_evolutions(pokemon_soup) -> list[str]:
-    evolutions_moves = pokemon_soup.find_all('a', class_='ent-name')
-    # regional variants increase this to 3 - need to be accounted for
-    evolutions = [item.text for item in evolutions_moves if item['href'].startswith('/pokedex/')][:3]
-    evolutions = list(dict.fromkeys(evolutions))
-    return evolutions
-
-
-def extract_stats(pokemon_soup) -> list[str]:
-    stats = pokemon_soup.find('div', id='dex-stats')
-    all_stats = []
-    next_stat = stats.find_next('tr')
-    this_stat = next_stat.text.split('\n')
-    for _ in range(7):
-        all_stats.append(this_stat[2])
-        next_stat = next_stat.find_next('tr')
-        this_stat = next_stat.text.split('\n')
-    return all_stats
-
-
-def create_df(game_url: str):
-    soup = get_html(base_url + '/pokedex/game' + game_url)
+def create_df(pokedex_soup: BeautifulSoup) -> pd.DataFrame:
     # pokemon_info includes the name, types and link to pokedex entry of each pokemon from that game
-    pokemon_info = [a for a in soup.find_all('div') if a.text.startswith('#')]
+    pokemon_info = [a for a in pokedex_soup.find_all('div') if a.text.startswith('#')]
     # Create the basic dataframe we will be adding onto
     name_types = [poke.text.replace(' · ', ' ').split(' ')[1:] for poke in pokemon_info]
     name_types = [[f'{item[0]} {item[1]}'] + item[2:] if len(item) == 4 else item for item in name_types]
@@ -84,7 +93,7 @@ def create_df(game_url: str):
 
 if __name__ == "__main__":
     # Step 1: Define the URL
-    base_url = "https://pokemondb.net/"
+    base_url = "https://pokemondb.net"
     base_soup = get_html(base_url)
 
     # Find the <span> with class "main-menu-title-long"
@@ -105,7 +114,10 @@ if __name__ == "__main__":
         '&', '').replace(':', '').replace(
         '  ', ' ').replace(' ', '_') + '_pokedex.csv'
     if df_name not in os.listdir("resources/pokedexes"):
-        df = create_df(links_to_games[list_of_games.index(game)])
+        pokedex_soup = get_pokedex_soup(get_html(base_url + links_to_games[list_of_games.index(game)]))
+        df = create_df(pokedex_soup)
+        if df.empty:
+            raise ValueError("No Data Found.")
         df.to_csv(f"resources/pokedexes/{df_name}")
     else:
         df = pd.read_csv(f"resources/pokedexes/{df_name}")
