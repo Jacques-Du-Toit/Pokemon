@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+import os
 
 
 def initialise_chart() -> pd.DataFrame:
@@ -379,27 +380,31 @@ def find_best_counter(poke: str, team: list[str], matchups: pd.DataFrame) -> pd.
     return matchups[(matchups["Type2"]==poke) & (matchups["Type1"].isin(team))].sort_values("S", ascending=False)
 
 
-def create_charts():
-    chart = initialise_chart()
-    chart = expand_chart(chart)
-    chart.to_csv("chart.csv")
+def load_charts():
+    if "chart.csv" not in os.listdir("resources/type_charts"):
+        chart = initialise_chart()
+        chart = expand_chart(chart)
+        chart.to_csv("resources/type_charts/chart.csv")
+    else:
+        chart = pd.read_csv("chart.csv", index_col=0)
 
-    matchups = matchup_generator(chart)
-    matchups.to_csv("matchups.csv", index=False)
+    if "matchups.csv" not in os.listdir("resources/type_charts"):
+        matchups = matchup_generator(chart)
+        matchups.to_csv("matchups.csv", index=False)
+    else:
+        matchups = pd.read_csv("matchups.csv")
 
     return chart, matchups
 
 
+
 def main():
-    chart = pd.read_csv("chart.csv", index_col=0)
-    matchups = pd.read_csv("matchups.csv")
+    chart, matchups = load_charts()
 
     #triangles = triangle_finder(matchups)
 
     team = team_of_six(matchups)
     print(team)
-
-    #team = ['fire/ground', 'rock/steel', 'fighting/dark', 'water/fairy', 'ice/flying', 'grass/ghost']
 
     check_team(chart, team)
 
