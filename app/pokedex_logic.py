@@ -124,17 +124,46 @@ def extract_pokemon_info(poke_soup):
     raw_evolutions = extract_evolution_lines(poke_soup)
     evolutions = clean_evolution_lines(raw_evolutions, name)
 
+    return name, forms, types, abilities, stats, evolutions
+
+
+def build_pokemon_entry(poke_soup):
+    name, forms, types, abilities, stats, evolutions = extract_pokemon_info(poke_soup)
+
+    mega = False
+    if evolutions and len(evolutions) < len(forms):
+        if len(evolutions) == 1:
+            evolutions *= len(forms)
+            mega = True
+        else:
+            raise ValueError('Multiple forms for multiple evolution lines')
+
     all_forms_info = []
-    for evo in evolutions:
-        which_form = [form for form in forms if f'{name} {form}'.strip() in evo.values()][0]
-        form_i = forms.index(which_form)
+    if evolutions:
+        for i, evo in enumerate(evolutions):
+            if mega:
+                form_i = i
+            else:
+                which_form = [form for form in forms if f'{form} {name}'.strip() in evo.values()][0]
+                form_i = forms.index(which_form)
+            all_forms_info.append({
+                  'Name': f'{forms[form_i]} {name}'.strip(),
+                  'Types': types[form_i],
+                  'Abilities': abilities[form_i]
+              } | {
+                  name: stat for name, stat in stats[form_i]
+              } | evo | {
+                  # 'Moves': [],
+                  # 'Where': [],
+              })
+    else:
         all_forms_info.append({
-              'Name': f'{forms[form_i]} {name}'.strip(),
-              'Types': types[form_i],
-              'Abilities': abilities[form_i]
+              'Name': name.strip(),
+              'Types': types[0],
+              'Abilities': abilities[0]
           } | {
-              name: stat for name, stat in stats[form_i]
-          } | evo | {
+              name: stat for name, stat in stats[0]
+          } | {
               # 'Moves': [],
               # 'Where': [],
           })
@@ -146,7 +175,7 @@ def create_df(pokedex_soup):
     pokemon_urls = [poke['href'] for poke in pokedex_soup.find_all('a', class_='ent-name')]
     all_pokemon_info = []
     for poke_url in tqdm(pokemon_urls):
-        all_pokemon_info += extract_pokemon_info(get_html(base_url + poke_url))
+        all_pokemon_info += build_pokemon_entry(get_html(base_url + poke_url))
     return pd.DataFrame(all_pokemon_info).drop_duplicates()
 
 
