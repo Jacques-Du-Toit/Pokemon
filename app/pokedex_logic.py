@@ -106,7 +106,7 @@ def clean_evolution_lines(raw_evolutions: list, name: str):
 def extract_pokemon_info(poke_soup):
     name = poke_soup.find('h1').text
     forms = poke_soup.find('div', class_='sv-tabs-tab-list').text.strip().split('\n')
-    forms = [form.replace(name, '').strip() for form in forms]
+    forms = [form.strip() if name in form else f'{name} {form}' for form in forms]
 
     headers = poke_soup.find_all('th')
 
@@ -144,10 +144,10 @@ def build_pokemon_entry(poke_soup):
             if mega:
                 form_i = i
             else:
-                which_form = [form for form in forms if f'{form} {name}'.strip() in evo.values()][0]
+                which_form = [form for form in forms if form in evo.values()][0]
                 form_i = forms.index(which_form)
             all_forms_info.append({
-                  'Name': f'{forms[form_i]} {name}'.strip(),
+                  'Name': forms[form_i],
                   'Types': types[form_i],
                   'Abilities': abilities[form_i]
               } | {
@@ -175,7 +175,10 @@ def create_df(pokedex_soup):
     pokemon_urls = [poke['href'] for poke in pokedex_soup.find_all('a', class_='ent-name')]
     all_pokemon_info = []
     for poke_url in tqdm(pokemon_urls):
-        all_pokemon_info += build_pokemon_entry(get_html(base_url + poke_url))
+        try:
+            all_pokemon_info += build_pokemon_entry(get_html(base_url + poke_url))
+        except:
+            print(poke_url)
     return pd.DataFrame(all_pokemon_info).drop_duplicates()
 
 
