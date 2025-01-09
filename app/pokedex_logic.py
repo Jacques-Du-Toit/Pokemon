@@ -106,7 +106,7 @@ def clean_evolution_lines(raw_evolutions: list, name: str):
 def extract_pokemon_info(poke_soup):
     name = poke_soup.find('h1').text
     forms = poke_soup.find('div', class_='sv-tabs-tab-list').text.strip().split('\n')
-    forms = [form.strip() if name in form else f'{name} {form}' for form in forms]
+    forms = [form.strip() for form in forms]
 
     headers = poke_soup.find_all('th')
 
@@ -127,6 +127,21 @@ def extract_pokemon_info(poke_soup):
     return name, forms, types, abilities, stats, evolutions
 
 
+def find_form(name: str, forms: list[str], evo: dict[str, str]) -> str:
+    if name in evo.values():
+        return name
+    else:
+        remaining_forms = [form for form in forms if form != name]
+        valid_forms = [form for form in remaining_forms if any([form in e for e in evo.values()])]
+        if len(valid_forms) == 1:
+            form = valid_forms[0]
+            return form
+        elif len(valid_forms) == 0:
+            return None
+        else:
+            raise ValueError(f"Couldn't find matching form for {name} {forms} {evo} - Valid Forms: {valid_forms}")
+
+
 def build_pokemon_entry(poke_soup):
     name, forms, types, abilities, stats, evolutions = extract_pokemon_info(poke_soup)
 
@@ -141,32 +156,46 @@ def build_pokemon_entry(poke_soup):
     all_forms_info = []
     if evolutions:
         for i, evo in enumerate(evolutions):
-            if mega:
-                form_i = i
+            which_form = find_form(name, forms, evo)
+
+            if which_form:
+                if mega:
+                    form_i = i
+                else:
+                    form_i = forms.index(which_form)
+                this_form = forms[form_i].replace(name, '').strip()
+                this_type = types[form_i]
+                this_ability = abilities[form_i]
+                this_stat = stats[form_i]
             else:
-                which_form = [form for form in forms if form in evo.values()][0]
-                form_i = forms.index(which_form)
+                this_form = None
+                this_type = None
+                this_ability = None
+                this_stat = {}
+
             all_forms_info.append({
-                  'Name': forms[form_i],
-                  'Types': types[form_i],
-                  'Abilities': abilities[form_i]
-              } | {
-                  name: stat for name, stat in stats[form_i]
-              } | evo | {
-                  # 'Moves': [],
-                  # 'Where': [],
-              })
+                                      'Name': name,
+                                      'Form': this_form,
+                                      'Types': this_type,
+                                      'Abilities': this_ability
+                                  } | {
+                                      name: stat for name, stat in this_stat
+                                  } | evo | {
+                                      # 'Moves': [],
+                                      # 'Where': [],
+                                  })
     else:
         all_forms_info.append({
-              'Name': name.strip(),
-              'Types': types[0],
-              'Abilities': abilities[0]
-          } | {
-              name: stat for name, stat in stats[0]
-          } | {
-              # 'Moves': [],
-              # 'Where': [],
-          })
+                                  'Name': name.strip(),
+                                  'Form': None,
+                                  'Types': types[0],
+                                  'Abilities': abilities[0]
+                              } | {
+                                  name: stat for name, stat in stats[0]
+                              } | {
+                                  # 'Moves': [],
+                                  # 'Where': [],
+                              })
 
     return all_forms_info
 
@@ -179,7 +208,7 @@ def create_df(pokedex_soup):
             all_pokemon_info += build_pokemon_entry(get_html(base_url + poke_url))
         except:
             print(poke_url)
-    return pd.DataFrame(all_pokemon_info).drop_duplicates()
+    return pd.DataFrame(all_pokemon_info).drop_duplicates().replace('', None)
 
 
 if __name__ == "__main__":
