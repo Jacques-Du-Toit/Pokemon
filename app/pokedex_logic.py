@@ -23,23 +23,6 @@ def get_pokedex_soup(game_soup: BeautifulSoup) -> BeautifulSoup:
     raise ValueError("Couldn't find a link to a pokedex")
 
 
-def prev_next_evo(row):
-    prev, next = None, None
-    evo_line = [row['Evo 1'], row['Evo 2'], row['Evo 3']]
-
-    if evo_line == [None, None, None]:
-        return pd.Series([prev, next])
-
-    evo = evo_line.index(row['Name'])
-
-    if evo > 0:
-        prev = evo_line[evo - 1]
-    if evo < 2:
-        next = evo_line[evo + 1]
-
-    return pd.Series([prev, next])
-
-
 def extract_stats(stat_table):
     all_stats = []
     next_link = stat_table.find_next('tr')
@@ -54,16 +37,6 @@ def extract_stats(stat_table):
 def extract_evolution_lines(poke_soup: BeautifulSoup) -> list[str]:
     """
     Extracts all the separate lines of evolutions for a pokemon (if they have different forms or variants).
-    Returns:
-        [
-            evolution_line_one,
-            evolution_line_two,
-            ..
-        ]
-        Where
-        evolution_line_i = [
-            Evo 1, How to Level + Evo 2, ..
-        ]
     """
     evo_tree = [evo.text.strip() for evo in poke_soup.find_all('div', class_='infocard-list-evo')]
 
@@ -111,12 +84,15 @@ def extract_evolution_lines(poke_soup: BeautifulSoup) -> list[str]:
 
 def clean_evo_line(evo_line: str) -> dict[str, str]:
     split_apart = [a.split('#') for a in evo_line.replace(' · ', '').split('\n')]
+    split_apart = [part for part in split_apart if part != ['']]
     final = {}
     for i, part in enumerate(split_apart):
+        if part == ['']:
+            continue
         name = ' '.join(part[1].split(' ')[1:-1])
         name_split = name.split(' ')
         if len(name_split) > 1 and name_split[0] == name_split[-1]:
-            name = ' '.join(name_split[:-1])
+            name = ' '.join(name_split[1:])
         if i != 0:
             final[f'Condition {i + 1}'] = part[0].replace('(', '').replace(')', '')
         final[f'Evolution {i + 1}'] = name
@@ -153,7 +129,7 @@ def extract_pokemon_info(poke_soup):
         which_form = [form for form in forms if f'{name} {form}'.strip() in evo.values()][0]
         form_i = forms.index(which_form)
         all_forms_info.append({
-              'Name': f'{name} {forms[form_i]}'.strip(),
+              'Name': f'{forms[form_i]} {name}'.strip(),
               'Types': types[form_i],
               'Abilities': abilities[form_i]
           } | {
