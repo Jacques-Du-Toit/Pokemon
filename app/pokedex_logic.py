@@ -61,14 +61,8 @@ def prev_next_evo(row) -> pd.Series:
 
 
 def create_df(pokedex_soup: BeautifulSoup) -> pd.DataFrame:
-    # pokemon_info includes the name, types and link to pokedex entry of each pokemon from that game
-    pokemon_info = [a for a in pokedex_soup.find_all('div') if a.text.startswith('#')]
-    # Create the basic dataframe we will be adding onto
-    name_types = [poke.text.replace(' · ', ' ').split(' ')[1:] for poke in pokemon_info]
-    name_types = [[f'{item[0]} {item[1]}'] + item[2:] if len(item) == 4 else item for item in name_types]
-    base_df = pd.DataFrame(columns=['Name', 'Type 1', 'Type 2'], data=name_types)
-    # Find the links to all the pokemons pokedex entries
-    pokemon_urls = [a.find('a')['href'] for a in pokemon_info]
+    pokemon_urls = [poke['href'] for poke in pokedex_soup.find_all('a', class_='ent-name')]
+
 
     evolution_cols = ['Evo 1', 'Evo 2', 'Evo 3']
     evolution_data = []
@@ -89,6 +83,62 @@ def create_df(pokedex_soup: BeautifulSoup) -> pd.DataFrame:
     full_df[['Prev Evo', 'Next Evo']] = full_df.apply(prev_next_evo, axis=1)
     full_df = full_df.join(stats_df)
     return full_df
+
+
+def extract_stats(stat_table):
+    all_stats = []
+    next_link = stat_table.find_next('tr')
+    next_stat = next_link.text.split('\n')[1:3]
+    while next_stat:
+        all_stats.append(next_stat)
+        next_link = next_link.find_next('tr')
+        next_stat = next_link.text.split('\n')[1:3]
+    return all_stats
+
+
+def extract_pokemon_info(poke_soup):
+    name = poke_soup.find('h1').text
+    forms = poke_soup.find('div', class_='sv-tabs-tab-list').text.strip().split('\n')
+    forms = [form.replace(name, '').strip() for form in forms]
+
+    headers = poke_soup.find_all('th')
+
+    types = [header.find_next('td').text.strip() for header in poke_soup.find_all('th') if header.text == 'Type']
+    types = types[:types.index('1')]
+
+    abilities = [
+        [ability.text for ability in header.find_next('td').find_all('a')]
+        for header in poke_soup.find_all('th') if header.text == 'Abilities'
+    ]
+
+    stats_tables = poke_soup.find_all('div', id='dex-stats')
+    stats = [extract_stats(stat_table) for stat_table in stats_tables]
+
+    all_forms_info = []
+    for form_i in range(len(forms)):
+        type1
+        all_forms_info.append({
+                                  'Name': name + forms[form_i],
+                                  'Types': types[form_i]
+                                  'Abilities': abilities[form_i]
+                              } | {
+                                  name: stat for name, stat in stats[form_i]
+                              } | {
+                                  'Evo 1': 'Sprigatito',
+                                  'Evo 2': 'Floragato',
+                                  'Evo 3': 'Meowscarada',
+                                  'Prev Evo': None,
+                                  'Next Evo': 'Floragato',
+                                  'Moves': [],
+                                  'Where': ['Cabo Poco'],
+                              })
+
+    print(name)
+    print(forms)
+    print(types)
+    print(abilities)
+
+    return all_forms_info
 
 
 if __name__ == "__main__":
