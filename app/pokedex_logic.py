@@ -150,8 +150,6 @@ def build_pokemon_entry(poke_soup):
         if len(evolutions) == 1:
             evolutions *= len(forms)
             mega = True
-        else:
-            raise ValueError('Multiple forms for multiple evolution lines')
 
     all_forms_info = []
     if evolutions:
@@ -174,28 +172,28 @@ def build_pokemon_entry(poke_soup):
                 this_stat = {}
 
             all_forms_info.append({
-                                      'Name': name,
-                                      'Form': this_form,
-                                      'Types': this_type,
-                                      'Abilities': this_ability
-                                  } | {
-                                      name: stat for name, stat in this_stat
-                                  } | evo | {
-                                      # 'Moves': [],
-                                      # 'Where': [],
-                                  })
+                  'Name': name,
+                  'Form': this_form,
+                  'Types': this_type,
+                  'Abilities': this_ability
+              } | {
+                  name: stat for name, stat in this_stat
+              } | evo | {
+                  # 'Moves': [],
+                  # 'Where': [],
+              })
     else:
         all_forms_info.append({
-                                  'Name': name.strip(),
-                                  'Form': None,
-                                  'Types': types[0],
-                                  'Abilities': abilities[0]
-                              } | {
-                                  name: stat for name, stat in stats[0]
-                              } | {
-                                  # 'Moves': [],
-                                  # 'Where': [],
-                              })
+              'Name': name.strip(),
+              'Form': None,
+              'Types': types[0],
+              'Abilities': abilities[0]
+          } | {
+              name: stat for name, stat in stats[0]
+          } | {
+              # 'Moves': [],
+              # 'Where': [],
+          })
 
     return all_forms_info
 
@@ -221,25 +219,30 @@ if __name__ == "__main__":
     list_of_games = [title.text.strip() for title in games_header.find_next('ul').find_all('li') if title.text.strip()]
     links_to_games = [title.find('a')['href'] for title in games_header.find_next('ul').find_all('li') if title.find('a')]
 
+    #for game in list_of_games:
+    #    print(game)
+
+    #while True:
+    #    game = input('Which game?')
+    #    if game not in list_of_games:
+    #        continue
+    #    break
+
     for game in list_of_games:
         print(game)
-
-    while True:
-        game = input('Which game?')
-        if game not in list_of_games:
-            continue
-        break
-
-    df_name = game.lower().replace(
-        '&', '').replace(':', '').replace(
-        '  ', ' ').replace(' ', '_') + '_pokedex.csv'
-    if df_name not in os.listdir("resources/pokedexes"):
-        pokedex_soup = get_pokedex_soup(get_html(base_url + links_to_games[list_of_games.index(game)]))
-        df = create_df(pokedex_soup)
-        if df.empty:
-            raise ValueError("No Data Found.")
-        df.to_csv(f"resources/pokedexes/{df_name}")
-    else:
-        df = pd.read_csv(f"resources/pokedexes/{df_name}")
+        try:
+            df_name = game.lower().replace(
+                '&', '').replace(':', '').replace(
+                '  ', ' ').replace(' ', '_') + '_pokedex.csv'
+            if df_name not in os.listdir("resources/pokedexes"):
+                pokedex_soup = get_pokedex_soup(get_html(base_url + links_to_games[list_of_games.index(game)]))
+                df = create_df(pokedex_soup)
+                if df.empty:
+                    raise ValueError("No Data Found.")
+                df.to_csv(f"resources/pokedexes/{df_name}")
+            else:
+                df = pd.read_csv(f"resources/pokedexes/{df_name}")
+        except:
+            print(f"No luck on {game}")
 
     print(df)
