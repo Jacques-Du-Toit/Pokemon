@@ -161,12 +161,12 @@ def extract_pokemon_info(poke_soup):
 
     headers = poke_soup.find_all('th')
 
-    types = [header.find_next('td').text.strip() for header in headers if header.text == 'Type']
-    types = types[:types.index('1')]
+    types = [header.find_next('td').text.strip() for header in poke_soup.find_all('th') if header.text == 'Type']
+    types = [t.split(' ') for t in types[:types.index('1')]]
 
     abilities = [
         [ability.text for ability in header.find_next('td').find_all('a')]
-        for header in headers if header.text == 'Abilities'
+        for header in poke_soup.find_all('th') if header.text == 'Abilities'
     ]
 
     stats_tables = poke_soup.find_all('div', id='dex-stats')
@@ -174,6 +174,15 @@ def extract_pokemon_info(poke_soup):
 
     raw_evolutions = extract_evolution_lines(poke_soup)
     evolutions = clean_evolution_lines(raw_evolutions, name)
+
+    if len(evolutions) > len(forms):
+        # this evo doesn't have many forms but future lines will
+        # we still want to be able to see all its end evolutions if we check it
+        for i in range(len(evolutions) - 1):
+            forms += forms
+            types += types
+            abilities += abilities
+            stats += stats
 
     all_forms_info = []
     for form_i in range(len(forms)):
@@ -186,7 +195,7 @@ def extract_pokemon_info(poke_soup):
           } | evolutions[form_i] | {
               'Moves': [],
               'Where': [],
-          })
+        })
 
     return all_forms_info
 
