@@ -23,14 +23,6 @@ def get_pokedex_soup(game_soup: BeautifulSoup) -> BeautifulSoup:
     raise ValueError("Couldn't find a link to a pokedex")
 
 
-def extract_evolutions(pokemon_soup: BeautifulSoup) -> list[str]:
-    evolutions_moves = pokemon_soup.find_all('a', class_='ent-name')
-    # regional variants increase this to 3 - need to be accounted for
-    evolutions = [item.text for item in evolutions_moves if item['href'].startswith('/pokedex/')][:3]
-    evolutions = list(dict.fromkeys(evolutions))
-    return evolutions
-
-
 def extract_stats(pokemon_soup: BeautifulSoup) -> list[str]:
     stats = pokemon_soup.find('div', id='dex-stats')
     all_stats = []
@@ -41,6 +33,54 @@ def extract_stats(pokemon_soup: BeautifulSoup) -> list[str]:
         next_stat = next_stat.find_next('tr')
         this_stat = next_stat.text.split('\n')
     return all_stats
+
+
+def extract_evolution_lines(poke_soup: BeautifulSoup) -> list[str]:
+    """
+    Extracts all the separate lines of evolutions for a pokemon (if they have different forms or variants).
+    """
+    evo_tree = [evo.text.strip() for evo in poke_soup.find_all('div', class_='infocard-list-evo')]
+
+    if len(evo_tree) == 1:
+        # Only one simple line luckily
+        return evo_tree
+
+    # First need to separate any evolutions lines with different starts
+    line_starts = []
+    all_lines = []
+    current_line = -1
+    for branch in evo_tree:
+        if branch.startswith('#'):
+            # this means its an entirely new line
+            current_line += 1
+            line_starts.append(branch)
+            all_lines.append([branch])
+        else:
+            # this means its continuing on from the last line
+            # The start line contains all the evolutions so need to remove that
+            line_starts[current_line] = line_starts[current_line].replace(branch, '')
+            all_lines[current_line].append(branch)
+
+    # Now need to separate each evolution line that splits
+    final_lines = []
+    for line in all_lines:
+        if len(line) == 1:
+            # Line doesn't split
+            final_lines += line
+            continue
+        current_line = []
+        for branch in line:
+            if branch.startswith('#'):
+                # this means its an entirely new line
+                line_start = branch
+            else:
+                # this means its continuing on from the last line
+                line_start = line_start.replace(branch,
+                                                '')  # Remove it from the start of the line as there are going to be separate lines now
+                current_line.append(branch)
+        final_lines += [(line_start + line_cont).replace('\n\n', '\n') for line_cont in current_line]
+
+    return final_lines
 
 
 def prev_next_evo(row) -> pd.Series:
@@ -103,12 +143,12 @@ def extract_pokemon_info(poke_soup):
 
     headers = poke_soup.find_all('th')
 
-    types = [header.find_next('td').text.strip() for header in poke_soup.find_all('th') if header.text == 'Type']
+    types = [header.find_next('td').text.strip() for header in headers if header.text == 'Type']
     types = types[:types.index('1')]
 
     abilities = [
         [ability.text for ability in header.find_next('td').find_all('a')]
-        for header in poke_soup.find_all('th') if header.text == 'Abilities'
+        for header in headers if header.text == 'Abilities'
     ]
 
     stats_tables = poke_soup.find_all('div', id='dex-stats')
@@ -116,10 +156,9 @@ def extract_pokemon_info(poke_soup):
 
     all_forms_info = []
     for form_i in range(len(forms)):
-        type1
         all_forms_info.append({
                                   'Name': name + forms[form_i],
-                                  'Types': types[form_i]
+                                  'Types': types[form_i],
                                   'Abilities': abilities[form_i]
                               } | {
                                   name: stat for name, stat in stats[form_i]
