@@ -172,28 +172,21 @@ def extract_pokemon_info(poke_soup):
     stats_tables = poke_soup.find_all('div', id='dex-stats')
     stats = [extract_stats(stat_table) for stat_table in stats_tables]
 
+    raw_evolutions = extract_evolution_lines(poke_soup)
+    evolutions = clean_evolution_lines(raw_evolutions, name)
+
     all_forms_info = []
     for form_i in range(len(forms)):
         all_forms_info.append({
-                                  'Name': name + forms[form_i],
-                                  'Types': types[form_i],
-                                  'Abilities': abilities[form_i]
-                              } | {
-                                  name: stat for name, stat in stats[form_i]
-                              } | {
-                                  'Evo 1': 'Sprigatito',
-                                  'Evo 2': 'Floragato',
-                                  'Evo 3': 'Meowscarada',
-                                  'Prev Evo': None,
-                                  'Next Evo': 'Floragato',
-                                  'Moves': [],
-                                  'Where': ['Cabo Poco'],
-                              })
-
-    print(name)
-    print(forms)
-    print(types)
-    print(abilities)
+              'Name': name + forms[form_i],
+              'Types': types[form_i],
+              'Abilities': abilities[form_i]
+          } | {
+              name: stat for name, stat in stats[form_i]
+          } | evolutions[form_i] | {
+              'Moves': [],
+              'Where': [],
+          })
 
     return all_forms_info
 
