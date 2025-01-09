@@ -178,7 +178,7 @@ def extract_pokemon_info(poke_soup):
     all_forms_info = []
     for form_i in range(len(forms)):
         all_forms_info.append({
-              'Name': name + forms[form_i],
+              'Name': f'{name} {forms[form_i]}',
               'Types': types[form_i],
               'Abilities': abilities[form_i]
           } | {
