@@ -135,10 +135,10 @@ def extract_pokemon_info(poke_soup):
     headers = poke_soup.find_all('th')
 
     types = [header.find_next('td').text.strip() for header in headers if header.text == 'Type']
-    types = [t.split(' ') for t in types[:types.index('1')]]
+    types = types[:types.index('1')]
 
     abilities = [
-        [ability.text for ability in header.find_next('td').find_all('a')]
+        ', '.join([ability.text for ability in header.find_next('td').find_all('a')])
         for header in headers if header.text == 'Abilities'
     ]
 
@@ -171,7 +171,7 @@ def create_df(pokedex_soup):
     all_pokemon_info = []
     for poke_url in tqdm(pokemon_urls):
         all_pokemon_info += extract_pokemon_info(get_html(base_url + poke_url))
-    return pd.DataFrame(all_pokemon_info)
+    return pd.DataFrame(all_pokemon_info).drop_duplicates()
 
 
 if __name__ == "__main__":
