@@ -23,21 +23,47 @@ def get_pokedex_soup(game_soup: BeautifulSoup) -> BeautifulSoup:
     raise ValueError("Couldn't find a link to a pokedex")
 
 
-def extract_stats(pokemon_soup: BeautifulSoup) -> list[str]:
-    stats = pokemon_soup.find('div', id='dex-stats')
+def prev_next_evo(row):
+    prev, next = None, None
+    evo_line = [row['Evo 1'], row['Evo 2'], row['Evo 3']]
+
+    if evo_line == [None, None, None]:
+        return pd.Series([prev, next])
+
+    evo = evo_line.index(row['Name'])
+
+    if evo > 0:
+        prev = evo_line[evo - 1]
+    if evo < 2:
+        next = evo_line[evo + 1]
+
+    return pd.Series([prev, next])
+
+
+def extract_stats(stat_table):
     all_stats = []
-    next_stat = stats.find_next('tr')
-    this_stat = next_stat.text.split('\n')
-    for _ in range(7):
-        all_stats.append(this_stat[2])
-        next_stat = next_stat.find_next('tr')
-        this_stat = next_stat.text.split('\n')
+    next_link = stat_table.find_next('tr')
+    next_stat = next_link.text.split('\n')[1:3]
+    while next_stat:
+        all_stats.append(next_stat)
+        next_link = next_link.find_next('tr')
+        next_stat = next_link.text.split('\n')[1:3]
     return all_stats
 
 
 def extract_evolution_lines(poke_soup: BeautifulSoup) -> list[str]:
     """
     Extracts all the separate lines of evolutions for a pokemon (if they have different forms or variants).
+    Returns:
+        [
+            evolution_line_one,
+            evolution_line_two,
+            ..
+        ]
+        Where
+        evolution_line_i = [
+            Evo 1, How to Level + Evo 2, ..
+        ]
     """
     evo_tree = [evo.text.strip() for evo in poke_soup.find_all('div', class_='infocard-list-evo')]
 
@@ -92,66 +118,13 @@ def clean_evo_line(evo_line: str) -> dict[str, str]:
         if len(name_split) > 1 and name_split[0] == name_split[-1]:
             name = ' '.join(name_split[:-1])
         if i != 0:
-            final[f'Condition {i+1}'] = part[0]
-        final[f'Evolution {i+1}'] = name
+            final[f'Condition {i + 1}'] = part[0].replace('(', '').replace(')', '')
+        final[f'Evolution {i + 1}'] = name
     return final
 
 
 def clean_evolution_lines(raw_evolutions: list, name: str):
     return [clean_evo_line(evo) for evo in raw_evolutions if name in evo]
-
-
-def prev_next_evo(row) -> pd.Series:
-    prev, next = None, None
-    evo_line = [row['Evo 1'], row['Evo 2'], row['Evo 3']]
-
-    if evo_line == [None, None, None]:
-        return pd.Series([prev, next])
-
-    evo = evo_line.index(row['Name'])
-
-    if evo > 0:
-        prev = evo_line[evo - 1]
-    if evo < 2:
-        next = evo_line[evo + 1]
-
-    return pd.Series([prev, next])
-
-
-def create_df(pokedex_soup: BeautifulSoup) -> pd.DataFrame:
-    pokemon_urls = [poke['href'] for poke in pokedex_soup.find_all('a', class_='ent-name')]
-
-
-    evolution_cols = ['Evo 1', 'Evo 2', 'Evo 3']
-    evolution_data = []
-    stats_cols = ['HP', 'Attack', 'Defense', 'Sp. Atk', 'Sp. Def', 'Speed', 'Total']
-    stats_data = []
-
-    for poke_url in tqdm(pokemon_urls):
-        pokemon_soup = get_html(base_url + poke_url)
-        # Find the evolution line of the pokemon
-        evolution_data.append(extract_evolutions(pokemon_soup))
-        # Find the stats of the pokemon
-        stats_data.append(extract_stats(pokemon_soup))
-
-    evolution_df = pd.DataFrame(columns=evolution_cols, data=evolution_data)
-    stats_df = pd.DataFrame(columns=stats_cols, data=stats_data)
-
-    full_df = base_df.join(evolution_df)
-    full_df[['Prev Evo', 'Next Evo']] = full_df.apply(prev_next_evo, axis=1)
-    full_df = full_df.join(stats_df)
-    return full_df
-
-
-def extract_stats(stat_table):
-    all_stats = []
-    next_link = stat_table.find_next('tr')
-    next_stat = next_link.text.split('\n')[1:3]
-    while next_stat:
-        all_stats.append(next_stat)
-        next_link = next_link.find_next('tr')
-        next_stat = next_link.text.split('\n')[1:3]
-    return all_stats
 
 
 def extract_pokemon_info(poke_soup):
@@ -186,19 +159,22 @@ def extract_pokemon_info(poke_soup):
           } | {
               name: stat for name, stat in stats[form_i]
           } | evo | {
-              'Moves': [],
-              'Where': [],
+              # 'Moves': [],
+              # 'Where': [],
           })
 
     return all_forms_info
 
 
-if __name__ == "__main__":
-    print(clean_evolution_lines([
-        '#0906 Sprigatito Grass\n(Level 16)#0907 Floragato Grass\n(Level 36)#0908 Meowscarada Grass · Dark'
-    ], 'Floragato'))
-    exit(0)
+def create_df(pokedex_soup):
+    pokemon_urls = [poke['href'] for poke in pokedex_soup.find_all('a', class_='ent-name')]
+    all_pokemon_info = []
+    for poke_url in tqdm(pokemon_urls):
+        all_pokemon_info += extract_pokemon_info(get_html(base_url + poke_url))
+    return pd.DataFrame(all_pokemon_info)
 
+
+if __name__ == "__main__":
     # Step 1: Define the URL
     base_url = "https://pokemondb.net"
     base_soup = get_html(base_url)
