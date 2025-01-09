@@ -132,14 +132,14 @@ def find_form(name: str, forms: list[str], evo: dict[str, str]) -> str:
         return name
     else:
         remaining_forms = [form for form in forms if form != name]
-        valid_forms = [form for form in remaining_forms if any([form in e for e in evo.values()])]
+        valid_forms = [form for form in remaining_forms if any([form in e for k, e in evo.items() if 'Evolution' in k])]
         if len(valid_forms) == 1:
             form = valid_forms[0]
             return form
         elif len(valid_forms) == 0:
             return None
         else:
-            raise ValueError(f"Couldn't find matching form for {name} {forms} {evo} - Valid Forms: {valid_forms}")
+            raise ValueError(f"Found multiple matching forms for {name} {forms} {evo} - Valid Forms: {valid_forms}")
 
 
 def build_pokemon_entry(poke_soup):
