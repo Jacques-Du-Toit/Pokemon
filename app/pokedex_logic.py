@@ -83,6 +83,24 @@ def extract_evolution_lines(poke_soup: BeautifulSoup) -> list[str]:
     return final_lines
 
 
+def clean_evo_line(evo_line: str) -> dict[str, str]:
+    split_apart = [a.split('#') for a in evo_line.replace(' · ', '').split('\n')]
+    final = {}
+    for i, part in enumerate(split_apart):
+        name = ' '.join(part[1].split(' ')[1:-1])
+        name_split = name.split(' ')
+        if len(name_split) > 1 and name_split[0] == name_split[-1]:
+            name = ' '.join(name_split[:-1])
+        if i != 0:
+            final[f'Condition {i+1}'] = part[0]
+        final[f'Evolution {i+1}'] = name
+    return final
+
+
+def clean_evolution_lines(raw_evolutions: list, name: str):
+    return [clean_evo_line(evo) for evo in raw_evolutions if name in evo]
+
+
 def prev_next_evo(row) -> pd.Series:
     prev, next = None, None
     evo_line = [row['Evo 1'], row['Evo 2'], row['Evo 3']]
@@ -181,6 +199,11 @@ def extract_pokemon_info(poke_soup):
 
 
 if __name__ == "__main__":
+    print(clean_evolution_lines([
+        '#0906 Sprigatito Grass\n(Level 16)#0907 Floragato Grass\n(Level 36)#0908 Meowscarada Grass · Dark'
+    ], 'Floragato'))
+    exit(0)
+
     # Step 1: Define the URL
     base_url = "https://pokemondb.net"
     base_soup = get_html(base_url)
