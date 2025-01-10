@@ -1,1 +1,6 @@
 numpy
+pandas
+tqdm
+bs4
+requests
+pytest

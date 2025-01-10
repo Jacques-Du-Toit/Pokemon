@@ -1,5 +1,7 @@
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
+import os
 
 
 def initialise_chart() -> pd.DataFrame:
@@ -192,26 +194,10 @@ def expand_chart(chart: pd.DataFrame) -> pd.DataFrame:
     return pd.concat([chart, new_df], axis=1)
 
 
-def main():
-    chart = initialise_chart()
-    chart = expand_chart(chart)
-    chart.to_excel("chart.xlsx")
-
-    adv = (chart > 1)
-    dis = (chart < 1)
-    # Sum across the columns to find how many advantages they have
-    strong_against = adv.sum(axis=1).sort_values(ascending=False)
-    # Sum across the rows to find how many resistances they have
-    resistant_to = dis.sum(axis=0).sort_values(ascending=False)
-
-    find_matching(["fire", "fighting"], adv)
-
-
 def find_matching(input_types: list[str], adv: pd.DataFrame):
-    if len(input_types) < 1:
-        print("Need at least 1 input type.")
-        return
-
+    """
+    Finds in order the next types needed to be able to be super effective against the most types
+    """
     current = adv.copy()
     types = input_types.copy()
 
@@ -231,6 +217,198 @@ def find_matching(input_types: list[str], adv: pd.DataFrame):
 
     print(types)
 
+
+def matchup_generator(chart: pd.DataFrame) -> pd.DataFrame:
+    """
+    Generates the matchups between all the different types in the form of a dataframe with columns
+    Type1, Type2, Res1, Res2, Str1, Str2, Res, Str
+
+    Where
+    - Resi is the resistance of Type1 to the ith type in Type2
+    - Stri is the strength of the ith type in Type1 against Type2
+    """
+    types = list(chart.columns)
+    rows = []
+    for i, type1 in enumerate(types):
+        for j, type2 in enumerate(types):
+            resist = [np.nan, np.nan]
+            strength = [np.nan, np.nan]
+
+            types_in_one = type1.split("/")
+            types_in_two = type2.split("/")
+
+            for t, two_type in enumerate(types_in_two):
+                resist[t] = chart.loc[two_type, type1]
+
+            for t, one_type in enumerate(types_in_one):
+                strength[t] = chart.loc[one_type, type2]
+
+            new_row = [type1, type2] + resist + strength
+            rows.append(new_row)
+
+    df = pd.DataFrame(columns=["Type1", "Type2", "Res1", "Res2", "Str1", "Str2"], data=rows)
+    df['Res'] = df[['Res1', 'Res2']].max(axis=1)
+    df['Str'] = df[['Str1', 'Str2']].max(axis=1)
+    df["S"] = df["Str"] - df["Res"]
+    return df
+
+
+def triangle_finder(matchups: pd.DataFrame):
+    """
+    Finds all the perfect type triangles such that each type has the same effectiveness against the next type, and
+    same resistance to the previous type
+    e.g.
+    - Type A -> x4 -> Type B -> x4 -> Type C -> x4 -> Type A
+    - Type A -> x0 -> Type C -> x0 -> Type B -> x0 -> Type A
+
+    For dual types - this must be true for both of their types
+    e.g.
+    - A/B, C/D, E/F
+    - (A -> x2 -> C/D) & (B -> x2 -> C/D)
+
+    Parameters:
+    ----------
+    matchups : pd.DataFrame
+        A DataFrame containing type interaction data with columns:
+        - 'Type1', 'Type2': Types involved in the interaction.
+        - 'Res1', 'Res2': Resistance values for dual types.
+        - 'Str1', 'Str2': Strength values for dual types.
+
+    Returns:
+    -------
+    pd.DataFrame
+        A DataFrame containing all valid type triangles with columns:
+        ['Type1', 'Type2', 'Type3', 'Res Big', 'Res Small', 'Str Big', 'Str Small'].
+    """
+    df = matchups.copy()
+    df['ResB'] = df[['Res1', 'Res2']].min(axis=1)
+    df['ResS'] = df[['Res1', 'Res2']].max(axis=1)
+    df['StrB'] = df[['Str1', 'Str2']].max(axis=1)
+    df['StrS'] = df[['Str1', 'Str2']].min(axis=1)
+
+    df = df[~(
+            (df['ResB'] == 1) &
+            (df['ResS'] == 1) &
+            (df['StrB'] == 1) &
+            (df['StrS'] == 1)
+    )]
+
+    types = df['Type1'].unique()
+    triangles = []
+    tri_df = []
+    for cur_type in tqdm(types, total=len(types)):
+        cur = df[(df['Type1'] == cur_type) & (df['Type2'] != cur_type)]
+        for i, next_row in cur.iterrows():
+            next = df[
+                (df['Type2'] != cur_type) &
+                (df['Type1'] == next_row['Type2']) &
+                (df['ResB'] == next_row['ResB']) &
+                (df['ResS'] == next_row['ResS']) &
+                (df['StrB'] == next_row['StrB']) &
+                (df['StrS'] == next_row['StrS'])
+                ]
+            for j, last_row in next.iterrows():
+                if (next_row['Type2'] == last_row['Type2']) or (last_row['Type2'] == cur_type): continue
+                last = df[
+                    (df['Type1'] == last_row['Type2']) &
+                    (df['Type2'] == cur_type) &
+                    (df['ResB'] == next_row['ResB']) &
+                    (df['ResS'] == next_row['ResS']) &
+                    (df['StrB'] == next_row['StrB']) &
+                    (df['StrS'] == next_row['StrS'])
+                    ]
+                if not last.empty:
+                    new_triangle = {cur_type, next_row['Type2'], last_row['Type2'], next_row['ResB'], next_row['ResS'],
+                                    next_row['StrB'], next_row['StrS']}
+                    if new_triangle not in triangles:
+                        triangles.append(new_triangle)
+                        tri_df.append(
+                            [cur_type, next_row['Type2'], last_row['Type2'], next_row['ResB'], next_row['ResS'],
+                             next_row['StrB'], next_row['StrS']])
+
+        df = df[(df['Type1'] != cur_type) & (df['Type2'] != cur_type)]
+    tri_df = pd.DataFrame(columns=['1', '2', '3', 'Res Big', 'Res Small', 'Str Big', 'Str Small'], data=tri_df)
+    return tri_df
+
+
+def best_counter(group: pd.DataFrame, overall: dict) -> None:
+    """Updates the 'overall' dict with the values of how well a type counters other types"""
+    group["rank"] = group["S"].rank(pct=True)
+    for _, row in group.iterrows():
+        so_far = overall.get(row["Type1"], [0, 0])
+        so_far[0] += row["rank"]
+        so_far[1] += 1
+        overall[row["Type1"]] = so_far
+
+
+def team_of_six(matchups: pd.DataFrame) -> list[str]:
+    df = matchups[matchups["Str"] >= 2].copy()
+    df['1'] = df['Type1'].apply(lambda row: row.split("/")[0])
+    df['2'] = df['Type1'].apply(lambda row: row.split("/")[-1])
+
+    found = []
+    while len(found) < 6:
+        overall = {}
+        df.groupby("Type2").apply(lambda group: best_counter(group, overall), include_groups=False)
+        scores = pd.DataFrame(overall).T
+        #print(scores.sort_values(0, ascending=False).head(10))
+        next_best = scores[0].idxmax()
+        found.append(next_best)
+        #for p_type in next_best.split("/"):
+        #    df = df[(df["1"] != p_type) & (df["2"] != p_type)]
+        types_already_countered = df[(df["Type1"] == next_best) & (df["S"] >= 1)]["Type2"].unique()
+        df = df[~df["Type2"].isin(types_already_countered)]
+    return found
+
+
+def check_team(chart: pd.DataFrame, team: list[str]) -> None:
+    left = chart.copy()
+    for poke in team:
+        for p_type in poke.split("/"):
+            a = left.loc[p_type, :]
+            left = left[a[(a < 2)].index]
+        if len(left.columns) <= 0:
+            print("Effective against all types")
+            return
+    print(f"Warning - team is not effective against {left.columns}")
+
+
+def find_best_counter(poke: str, team: list[str], matchups: pd.DataFrame) -> pd.DataFrame:
+    if poke not in matchups["Type2"].unique():
+        poke = poke.split("/")
+        poke = "/".join([poke[-1], poke[0]])
+    return matchups[(matchups["Type2"]==poke) & (matchups["Type1"].isin(team))].sort_values("S", ascending=False)
+
+
+def load_charts():
+    if "chart.csv" not in os.listdir("resources/type_charts"):
+        chart = initialise_chart()
+        chart = expand_chart(chart)
+        chart.to_csv("resources/type_charts/chart.csv")
+    else:
+        chart = pd.read_csv("chart.csv", index_col=0)
+
+    if "matchups.csv" not in os.listdir("resources/type_charts"):
+        matchups = matchup_generator(chart)
+        matchups.to_csv("matchups.csv", index=False)
+    else:
+        matchups = pd.read_csv("matchups.csv")
+
+    return chart, matchups
+
+
+
+def main():
+    chart, matchups = load_charts()
+
+    #triangles = triangle_finder(matchups)
+
+    team = team_of_six(matchups)
+    print(team)
+
+    check_team(chart, team)
+
+    print(find_best_counter("electric/flying", team, matchups))
 
 if __name__ == '__main__':
     main()
