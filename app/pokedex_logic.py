@@ -209,6 +209,22 @@ def create_df(pokedex_soup):
     return pd.DataFrame(all_pokemon_info).drop_duplicates().replace('', None)
 
 
+def create_all_pokedexes() -> None:
+    for game in list_of_games:
+        print(game)
+        try:
+            df_name = game.lower().replace(
+                '&', '').replace(':', '').replace(
+                '  ', ' ').replace(' ', '_') + '_pokedex.csv'
+            pokedex_soup = get_pokedex_soup(get_html(base_url + links_to_games[list_of_games.index(game)]))
+            df = create_df(pokedex_soup)
+            if df.empty:
+                raise ValueError("No Data Found.")
+            df.to_csv(f"resources/pokedexes/{df_name}")
+        except:
+            print(f"No luck on {game}")
+
+
 if __name__ == "__main__":
     # Step 1: Define the URL
     base_url = "https://pokemondb.net"
@@ -219,6 +235,7 @@ if __name__ == "__main__":
     list_of_games = [title.text.strip() for title in games_header.find_next('ul').find_all('li') if title.text.strip()]
     links_to_games = [title.find('a')['href'] for title in games_header.find_next('ul').find_all('li') if title.find('a')]
 
+    create_all_pokedexes()
     #for game in list_of_games:
     #    print(game)
 
@@ -228,21 +245,4 @@ if __name__ == "__main__":
     #        continue
     #    break
 
-    for game in list_of_games:
-        print(game)
-        try:
-            df_name = game.lower().replace(
-                '&', '').replace(':', '').replace(
-                '  ', ' ').replace(' ', '_') + '_pokedex.csv'
-            if df_name not in os.listdir("resources/pokedexes"):
-                pokedex_soup = get_pokedex_soup(get_html(base_url + links_to_games[list_of_games.index(game)]))
-                df = create_df(pokedex_soup)
-                if df.empty:
-                    raise ValueError("No Data Found.")
-                df.to_csv(f"resources/pokedexes/{df_name}")
-            else:
-                df = pd.read_csv(f"resources/pokedexes/{df_name}")
-        except:
-            print(f"No luck on {game}")
 
-    print(df)
