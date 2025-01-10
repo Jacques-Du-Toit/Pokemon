@@ -236,13 +236,5 @@ if __name__ == "__main__":
     links_to_games = [title.find('a')['href'] for title in games_header.find_next('ul').find_all('li') if title.find('a')]
 
     create_all_pokedexes()
-    #for game in list_of_games:
-    #    print(game)
-
-    #while True:
-    #    game = input('Which game?')
-    #    if game not in list_of_games:
-    #        continue
-    #    break
 
 
