@@ -1,5 +1,4 @@
-import pytest
-from app.pokedex_logic import *
+from app.pokedex_scraping import *
 
 
 def test_that_extract_evolution_lines_works():

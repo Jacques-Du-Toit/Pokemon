@@ -1,6 +1,5 @@
 from bs4 import BeautifulSoup
 import requests
-import os
 from tqdm import tqdm
 import pandas as pd
 
@@ -236,5 +235,3 @@ if __name__ == "__main__":
     links_to_games = [title.find('a')['href'] for title in games_header.find_next('ul').find_all('li') if title.find('a')]
 
     create_all_pokedexes()
-
-
