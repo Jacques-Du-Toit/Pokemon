@@ -386,13 +386,13 @@ def load_charts():
         chart = expand_chart(chart)
         chart.to_csv("resources/type_charts/chart.csv")
     else:
-        chart = pd.read_csv("chart.csv", index_col=0)
+        chart = pd.read_csv("resources/type_charts/chart.csv", index_col=0)
 
     if "matchups.csv" not in os.listdir("resources/type_charts"):
         matchups = matchup_generator(chart)
-        matchups.to_csv("matchups.csv", index=False)
+        matchups.to_csv("resources/type_charts/matchups.csv", index=False)
     else:
-        matchups = pd.read_csv("matchups.csv")
+        matchups = pd.read_csv("resources/type_charts/matchups.csv")
 
     return chart, matchups
 

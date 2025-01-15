@@ -219,7 +219,7 @@ def create_all_pokedexes() -> None:
             df = create_df(pokedex_soup)
             if df.empty:
                 raise ValueError("No Data Found.")
-            df.to_csv(f"resources/pokedexes/{df_name}")
+            df.to_csv(f"resources/pokedexes/{df_name}", index=False)
         except:
             print(f"No luck on {game}")
 
