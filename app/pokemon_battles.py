@@ -29,8 +29,8 @@ def one_vs_one(poke1: pd.Series, poke2: pd.Series, chart: pd.DataFrame) -> float
     )
     dmg2 = dmg_calc(poke2['ATK'], poke1[poke2['ATK.T']], t2_mult)
 
-    hits_to_kill_2 = int((poke2['HP'] / dmg1) + 1) if dmg1 != 0 else 10
-    hits_to_kill_1 = int((poke1['HP'] / dmg2) + 1) if dmg2 != 0 else 10
+    hits_to_kill_2 = int((poke2['HP'] / dmg1) + 1) if dmg1 != 0 else 5
+    hits_to_kill_1 = int((poke1['HP'] / dmg2) + 1) if dmg2 != 0 else 5
 
     if poke1['Speed'] > poke2['Speed']:
         hits_to_kill_1 += 1
@@ -73,8 +73,45 @@ def battle_pokemon(pokedex: str):
     print(tabulate(df.sort_values(by=['Score'], ascending=False), headers='keys'))
 
 
+def best_team(matchups: pd.DataFrame, team: list[str] = None, exclude: list[str] = None, min_score: int = 3) -> list[str]:
+    df = matchups.copy()
+
+    if not team:
+        team = []
+    if exclude:
+        df = df[~df['Name 1'].isin(exclude)]
+
+    # We only care about counters
+    df = df[df['Score'] > 0]
+
+    for poke in team:
+        counters = df.loc[(df['Name 1'] == poke) & (df['Score'] >= min_score), 'Name 2'].unique()
+        df = df[(df['Name 1'] != poke) & (~df['Name 2'].isin(counters))]
+
+    while len(team) < 6:
+
+        num_counters = df.loc[df['Score'] >= 2, 'Name 1'].value_counts()
+        pokes_with_most = num_counters[num_counters == num_counters.max()]
+        if len(pokes_with_most) == 1:
+            next_best = pokes_with_most.index[0]
+        else:
+            next_best = df[df['Name 1'].isin(pokes_with_most.index)].groupby('Name 1')['Score'].mean().idxmax()
+
+        team.append(next_best)
+
+        counters = df.loc[(df['Name 1'] == next_best) & (df['Score'] >= min_score), 'Name 2'].unique()
+        df = df[(df['Name 1'] != next_best) & (~df['Name 2'].isin(counters))]
+
+    return team
+
+
 def main():
-    battle_pokemon('platinum_pokedex')
+    #battle_pokemon('platinum_pokedex')
+    df = pd.read_csv('resources/poke_matchups.csv')
+
+    print(best_team(df, [], [], 3))
+
+
 
 
 if __name__ == "__main__":
