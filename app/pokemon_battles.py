@@ -40,8 +40,8 @@ def one_vs_one(poke1: pd.Series, poke2: pd.Series, chart: pd.DataFrame) -> float
     return (hits_to_kill_1 - hits_to_kill_2) / min(hits_to_kill_1, hits_to_kill_2)
 
 
-def battle_pokemon(pokedex: str):
-    df = pd.read_csv(f'resources/pokedexes/{pokedex}.csv', usecols=['Name', 'Form', 'Types', 'HP', 'Attack', 'Defense', 'Sp. Atk', 'Sp. Def', 'Speed', 'Total'])
+def battle_pokemon(pokedex: pd.DataFrame):
+    df = pokedex[['Name', 'Form', 'Types', 'HP', 'Attack', 'Defense', 'Sp. Atk', 'Sp. Def', 'Speed', 'Total']].copy()
     chart = pd.read_csv('resources/type_charts/chart.csv', index_col=0)
 
     df = df[(df['Form']!='Mega')&(df['Total'].notnull())]
@@ -105,11 +105,27 @@ def best_team(matchups: pd.DataFrame, team: list[str] = None, exclude: list[str]
     return team
 
 
-def main():
-    #battle_pokemon('platinum_pokedex')
-    df = pd.read_csv('resources/poke_matchups.csv')
+def latest_evolution(pokemon: str, pokedex: pd.DataFrame) -> str:
+    """Finds the latest evolution of the pokemon given."""
+    evo_line = pokedex[pokedex['Name'] == pokemon].dropna(axis=1)
+    latest_evo = [col for col in evo_line.columns if 'Evo' in col]
+    if not latest_evo:
+        # It doesn't evolve
+        return pokemon
+    else:
+        return evo_line[latest_evo[-1]].iloc[0]
 
-    print(best_team(df, [], [], 3))
+
+def eval_team(team: list[str], matchups: pd.DataFrame, pokedex: pd.DataFrame):
+    team_df = matchups[matchups['Name 1'].isin(team)]
+
+
+
+
+def main():
+    pokedex = pd.read_csv('resources/pokedexes/platinum_pokedex.csv')
+    df = pd.read_csv('resources/poke_matchups.csv')
+    print(best_team(df))
 
 
 
