@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from tabulate import tabulate
@@ -108,6 +109,10 @@ def best_team(matchups: pd.DataFrame, team: list[str] = None, exclude: list[str]
 def latest_evolution(pokemon: str, pokedex: pd.DataFrame) -> str:
     """Finds the latest evolution of the pokemon given."""
     evo_line = pokedex[pokedex['Name'] == pokemon].dropna(axis=1)
+    if evo_line.empty:
+        # TODO - Forms and variants need to be sorted out
+        return pokemon
+
     latest_evo = [col for col in evo_line.columns if 'Evo' in col]
     if not latest_evo:
         # It doesn't evolve
@@ -124,6 +129,10 @@ def eval_team(team: list[str], matchups: pd.DataFrame, pokedex: pd.DataFrame):
     # What & of pokemon we can beat
     ratio_beats = team_df[team_df['Score'] > 0]['Name 2'].nunique() / matchups['Name 2'].nunique()
     return round(ratio_beats, 2), round(team_df['Score'].median(), 2), round(team_df['Score'].mean(), 2)
+
+
+def display(df: pd.DataFrame) -> None:
+    print(tabulate(df, headers='keys'))
 
 
 def main():
