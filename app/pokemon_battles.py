@@ -122,13 +122,50 @@ def latest_evolution(pokemon: str, pokedex: pd.DataFrame) -> str:
 
 
 def eval_team(team: list[str], matchups: pd.DataFrame, pokedex: pd.DataFrame):
-    """Returns what % of pokemon the team can beat, their median score and mean score"""
+    """Returns what % of pokemon the team can beat, their median score and mean score, and the pokemon they lose to"""
     # We care about the team at it's strongest -> fully evolved
     evo_team = [latest_evolution(poke, pokedex) for poke in team]
     team_df = matchups[matchups['Name 1'].isin(evo_team)].copy()
     # What & of pokemon we can beat
     ratio_beats = team_df[team_df['Score'] > 0]['Name 2'].nunique() / matchups['Name 2'].nunique()
-    return round(ratio_beats, 2), round(team_df['Score'].median(), 2), round(team_df['Score'].mean(), 2)
+    # What pokemon we lose to
+    loses_to = set(matchups['Name 2'].unique()) - set(team_df[team_df['Score'] > 0]['Name 2'].unique())
+    return round(ratio_beats, 2), round(team_df['Score'].median(), 2), round(team_df['Score'].mean(), 2), ' '.join(loses_to)
+
+
+def poke_replace(team: list[str], new_poke: str, matchups: pd.DataFrame, pokedex: pd.DataFrame) -> pd.DataFrame:
+    """
+    Evaluates replacing each Pokémon in the team with a new Pokémon
+    and prints the changes in the ratio if it's an improvement.
+
+    Parameters:
+        team (list[str]): Current team of Pokémon.
+        new_poke (str): The Pokémon to potentially add to the team.
+        matchups (pd.DataFrame): DataFrame containing Pokémon matchups data.
+        pokedex (pd.DataFrame): DataFrame containing Pokémon stats and info.
+
+    Returns:
+        None
+    """
+    # Evaluate the current team's performance
+    ratio, median, mean, loses_to = eval_team(team, matchups, pokedex)
+
+    data = [[None, ratio, median, mean, loses_to]]
+
+    # Iterate over each Pokémon in the team
+    for poke in team:
+        # Create a new team by replacing the current Pokémon with the new Pokémon
+        new_team = [p for p in team if p != poke] + [new_poke]
+
+        # Evaluate the new team's performance
+        ratio, median, mean, loses_to = eval_team(new_team, matchups, pokedex)
+
+        data.append([poke, ratio, median, mean, loses_to])
+
+    df = pd.DataFrame(
+        columns=['Poke', 'Ratio', 'Median', 'Mean', 'Loses To'], data=data
+    )
+    return df.sort_values(by=['Ratio', 'Median', 'Mean'], ascending=False)
 
 
 def display(df: pd.DataFrame) -> None:
@@ -137,10 +174,10 @@ def display(df: pd.DataFrame) -> None:
 
 def main():
     pokedex = pd.read_csv('resources/pokedexes/platinum_pokedex.csv')
-    df = pd.read_csv('resources/poke_matchups.csv')
-    team = best_team(df)
-    print(team)
-    print(eval_team(team, df, pokedex))
+    matchups = pd.read_csv('resources/poke_matchups.csv')
+
+    display(poke_replace(['Turtwig', 'Bidoof', 'Starly', 'Zubat', 'Graveler', 'Psyduck'],
+                 'shinx', matchups, pokedex))
 
 
 
