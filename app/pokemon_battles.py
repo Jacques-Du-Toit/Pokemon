@@ -117,15 +117,21 @@ def latest_evolution(pokemon: str, pokedex: pd.DataFrame) -> str:
 
 
 def eval_team(team: list[str], matchups: pd.DataFrame, pokedex: pd.DataFrame):
-    team_df = matchups[matchups['Name 1'].isin(team)]
-
-
+    """Returns what % of pokemon the team can beat, their median score and mean score"""
+    # We care about the team at it's strongest -> fully evolved
+    evo_team = [latest_evolution(poke, pokedex) for poke in team]
+    team_df = matchups[matchups['Name 1'].isin(evo_team)].copy()
+    # What & of pokemon we can beat
+    ratio_beats = team_df[team_df['Score'] > 0]['Name 2'].nunique() / matchups['Name 2'].nunique()
+    return round(ratio_beats, 2), round(team_df['Score'].median(), 2), round(team_df['Score'].mean(), 2)
 
 
 def main():
     pokedex = pd.read_csv('resources/pokedexes/platinum_pokedex.csv')
     df = pd.read_csv('resources/poke_matchups.csv')
-    print(best_team(df))
+    team = best_team(df)
+    print(team)
+    print(eval_team(team, df, pokedex))
 
 
 
