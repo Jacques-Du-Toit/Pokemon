@@ -5,7 +5,7 @@ from tabulate import tabulate
 
 
 def dmg_calc(atk: float, defs: float, type_mult: float) -> float:
-    return ((84 * atk / defs) + 2) * 1.5 * type_mult
+    return ((44 * atk / defs) + 2) * 1.5 * type_mult
 
 
 def one_vs_one(poke1: pd.Series, poke2: pd.Series, chart: pd.DataFrame) -> float:
@@ -30,8 +30,8 @@ def one_vs_one(poke1: pd.Series, poke2: pd.Series, chart: pd.DataFrame) -> float
     )
     dmg2 = dmg_calc(poke2['ATK'], poke1[poke2['ATK.T']], t2_mult)
 
-    hits_to_kill_2 = int((poke2['HP'] / dmg1) + 1) if dmg1 != 0 else 5
-    hits_to_kill_1 = int((poke1['HP'] / dmg2) + 1) if dmg2 != 0 else 5
+    hits_to_kill_2 = int(((poke2['HP'] + 60) / dmg1) + 1) if dmg1 != 0 else 5
+    hits_to_kill_1 = int(((poke1['HP'] + 60) / dmg2) + 1) if dmg2 != 0 else 5
 
     if poke1['Speed'] > poke2['Speed']:
         hits_to_kill_1 += 1
@@ -58,6 +58,7 @@ def battle_pokemon(pokedex: pd.DataFrame):
     df['ATK.T'] = df[['Attack', 'Sp. Atk']].idxmax(axis=1).replace('Attack', 'Defense').replace('Atk', 'Def')
 
     df['Score'] = 0.0
+    df.reset_index(drop=True, inplace=True)
 
     matchups = []
     for i, poke1 in tqdm(df.iloc[:-1].iterrows(), total=len(df)-1):
@@ -74,7 +75,7 @@ def battle_pokemon(pokedex: pd.DataFrame):
     print(tabulate(df.sort_values(by=['Score'], ascending=False), headers='keys'))
 
 
-def best_team(matchups: pd.DataFrame, team: list[str] = None, exclude: list[str] = None, min_score: int = 3) -> list[str]:
+def best_team(matchups: pd.DataFrame, team: list[str] = None, exclude: list[str] = None, min_score: int = 1) -> list[str]:
     df = matchups.copy()
 
     if not team:
@@ -91,7 +92,7 @@ def best_team(matchups: pd.DataFrame, team: list[str] = None, exclude: list[str]
 
     while len(team) < 6:
 
-        num_counters = df.loc[df['Score'] >= 2, 'Name 1'].value_counts()
+        num_counters = df.loc[df['Score'] >= min_score, 'Name 1'].value_counts()
         pokes_with_most = num_counters[num_counters == num_counters.max()]
         if len(pokes_with_most) == 1:
             next_best = pokes_with_most.index[0]
@@ -168,6 +169,10 @@ def poke_replace(team: list[str], new_poke: str, matchups: pd.DataFrame, pokedex
     return df.sort_values(by=['Ratio', 'Median', 'Mean'], ascending=False)
 
 
+def find_counters(team: list[str], pokemon: str, matchups: pd.DataFrame) -> pd.DataFrame:
+    display(matchups[(matchups['Name 1'].isin(team)) & (matchups['Name 2'] == pokemon)].sort_values(by='Score', ascending=False))
+
+
 def display(df: pd.DataFrame) -> None:
     print(tabulate(df, headers='keys'))
 
@@ -176,8 +181,18 @@ def main():
     pokedex = pd.read_csv('resources/pokedexes/platinum_pokedex.csv')
     matchups = pd.read_csv('resources/poke_matchups.csv')
 
-    display(poke_replace(['Turtwig', 'Bidoof', 'Starly', 'Zubat', 'Graveler', 'Psyduck'],
-                 'shinx', matchups, pokedex))
+    print(best_team(matchups, min_score=1))
+    print(best_team(matchups, min_score=2))
+    print(best_team(matchups, min_score=3))
+    print(best_team(matchups, min_score=4))
+    print(best_team(matchups, min_score=5))
+    print(best_team(matchups, min_score=6))
+    print(best_team(matchups, min_score=10))
+
+    #display(poke_replace(['Turtwig', 'Bidoof', 'Starly', 'Zubat', 'Graveler', 'Psyduck'],
+    #             'shinx', matchups, pokedex))
+
+    #  find_counters(['Infernape', 'Bidoof', 'Starly', 'Zubat', 'Graveler', 'Psyduck'], 'Palkia', matchups)
 
 
 
