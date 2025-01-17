@@ -8,6 +8,29 @@ def dmg_calc(atk: float, defs: float, type_mult: float) -> float:
     return ((44 * atk / defs) + 2) * 1.5 * type_mult
 
 
+def turns_won_by(hits_to_kill_1: int, hits_to_kill_2: int, speed_1: int, speed_2: int) -> float:
+    """Calculates the number of turns one pokemon would beat the other one by"""
+    if (hits_to_kill_1 == hits_to_kill_2) and (speed_1 == speed_2):
+        return 0
+
+    hits_to_kill = [hits_to_kill_1, hits_to_kill_2]
+    speed = [speed_1, speed_2]
+    stronger_index = hits_to_kill.index(max(hits_to_kill))
+    weaker_index = stronger_index - 1
+    faster_index = speed.index(max(speed))
+
+    if hits_to_kill_1 == hits_to_kill_2:
+        hits_to_kill[faster_index] += 1
+    elif speed[weaker_index] > speed[stronger_index]:
+        pass
+    elif speed[weaker_index] < speed[stronger_index]:
+        hits_to_kill[stronger_index] += 1
+    else:
+        hits_to_kill[stronger_index] += 0.5
+
+    return (hits_to_kill[0] - hits_to_kill[1]) / min(hits_to_kill)
+
+
 def one_vs_one(poke1: pd.Series, poke2: pd.Series, chart: pd.DataFrame) -> float:
     """
     Returns a score that shows how much faster one pokemon would beat the other
@@ -33,12 +56,7 @@ def one_vs_one(poke1: pd.Series, poke2: pd.Series, chart: pd.DataFrame) -> float
     hits_to_kill_2 = int(((poke2['HP'] + 60) / dmg1) + 1) if dmg1 != 0 else 5
     hits_to_kill_1 = int(((poke1['HP'] + 60) / dmg2) + 1) if dmg2 != 0 else 5
 
-    if poke1['Speed'] > poke2['Speed']:
-        hits_to_kill_1 += 1
-    elif poke1['Speed'] < poke2['Speed']:
-        hits_to_kill_2 += 1
-
-    return (hits_to_kill_1 - hits_to_kill_2) / min(hits_to_kill_1, hits_to_kill_2)
+    return turns_won_by(hits_to_kill_1, hits_to_kill_2, poke1['Speed'], poke2['Speed'])
 
 
 def battle_pokemon(pokedex: pd.DataFrame):
