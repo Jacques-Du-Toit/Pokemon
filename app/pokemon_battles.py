@@ -53,8 +53,22 @@ def one_vs_one(poke1: pd.Series, poke2: pd.Series, chart: pd.DataFrame) -> float
     )
     dmg2 = dmg_calc(poke2['ATK'], poke1[poke2['ATK.T']], t2_mult)
 
-    hits_to_kill_2 = int(((poke2['HP'] + 60) / dmg1) + 1) if dmg1 != 0 else 5
-    hits_to_kill_1 = int(((poke1['HP'] + 60) / dmg2) + 1) if dmg2 != 0 else 5
+    hits_to_kill_2 = int(((poke2['HP'] + 60) / dmg1) + 1) if dmg1 != 0 else np.inf
+    hits_to_kill_1 = int(((poke1['HP'] + 60) / dmg2) + 1) if dmg2 != 0 else np.inf
+
+    if (hits_to_kill_1 == np.inf) and (hits_to_kill_2 == np.inf):
+        if poke1['Total'] > poke2['Total']:
+            return 1
+        elif poke1['Total'] < poke2['Total']:
+            return -1
+        else:
+            return 0
+
+    # Set them to take 3 turns longer to kill instead
+    if hits_to_kill_2 == np.inf:
+        hits_to_kill_2 = hits_to_kill_1 + 3
+    elif hits_to_kill_1 == np.inf:
+        hits_to_kill_1 = hits_to_kill_2 + 3
 
     return turns_won_by(hits_to_kill_1, hits_to_kill_2, poke1['Speed'], poke2['Speed'])
 
@@ -198,6 +212,8 @@ def display(df: pd.DataFrame) -> None:
 def main():
     pokedex = pd.read_csv('resources/pokedexes/platinum_pokedex.csv')
     matchups = pd.read_csv('resources/poke_matchups.csv')
+
+    battle_pokemon(pokedex)
 
     print(best_team(matchups, min_score=1))
     print(best_team(matchups, min_score=2))
