@@ -1,5 +1,5 @@
-import pytest
-from app.pokedex_logic import *
+from app.pokedex_scraping import *
+from app.pokemon_battles import latest_evolution
 
 
 def test_that_extract_evolution_lines_works():
@@ -103,3 +103,6 @@ def test_that_clean_evolution_lines_works():
                    'Evolution 2': 'Clodsire'
                }]
 
+
+def test_latest_evolution():
+    assert latest_evolution('Starly', pd.read_csv('resources/pokedexes/platinum_pokedex.csv')) == 'Staraptor'
