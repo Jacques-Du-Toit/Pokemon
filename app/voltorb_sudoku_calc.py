@@ -26,17 +26,22 @@ def update_rows_cols(grid: list[list[str]], rows: list[list[int]], cols: list[li
     """Reduces the point and bomb numbers of row and columns by the points and bombs we know of"""
     for r, row in enumerate(grid):
         for c, val in enumerate(row):
-            if val.isdigit():
-                rows[r][0] -= int(val)
-                cols[c][0] -= int(val)
+            if '/' in val: # this tells us that we haven't accounted for it yet
+                if val[:-1].isdigit():
+                    val = val[:-1]
+                    grid[r][c] = val
+                    rows[r][0] -= int(val)
+                    cols[c][0] -= int(val)
+                    rows[r][2] -= 1
+                    cols[c][2] -= 1
 
-            elif val == 'B/':
-                grid[r][c] = 'B'
-                rows[r][1] -= 1
-                cols[c][1] -= 1
-                rows[r][2] -= 1
-                cols[c][2] -= 1
-                check_for_no_bombs(grid, rows, cols)
+                elif val == 'B/':
+                    grid[r][c] = 'B'
+                    rows[r][1] -= 1
+                    cols[c][1] -= 1
+                    rows[r][2] -= 1
+                    cols[c][2] -= 1
+                    check_for_no_bombs(grid, rows, cols)
 
 
 def is_valid_points_spaces(points: int, spaces: int, low: int = 1, high: int = 3) -> bool:
@@ -74,7 +79,7 @@ def val_checker(grid: list[list[str]], rows: list[list[int]], cols: list[list[in
 
     for c, col in enumerate(cols):
         points = col[0]
-        spaces = len(rows) - col[1]
+        spaces = col[2]- col[1]
         possible_vals = find_possible_values(points, spaces, index=c, line='col')
         for r_i in range(len(rows)):
             val = grid[r_i][c]
@@ -91,10 +96,7 @@ def val_checker(grid: list[list[str]], rows: list[list[int]], cols: list[list[in
 
 
 def iterate_through(grid: list[list[str]], rows: list[list[int]], cols: list[list[int]]):
-    # Add the number of spaces remaining
-    rows = [row + [len(cols)] for row in rows]
-    cols = [col + [len(rows)] for col in cols]
-
+    """Calculates the possible values for each value"""
     before = copy.deepcopy(grid)
 
     # Do this first so we update the rows and values with points we already know
@@ -113,9 +115,9 @@ def main():
     grid = [
         ['?', '?', '?', '?', '?'],
         ['?', '?', '?', '?', '?'],
-        ['?', '?', '?', '?', '?'],
-        ['?', '?', '?', '?', '?'],
-        ['?', '?', '?', '?', '?']
+        ['?', '3/', '?', '?', '?'],
+        ['?', 'B/', '?', '?', '?'],
+        ['?', '3/', '?', '?', '?']
     ]
 
     rows = [
@@ -128,6 +130,10 @@ def main():
     cols = [
         [2, 3], [8, 2], [5, 1], [6, 1], [5, 1]
     ]
+
+    # Add the number of spaces remaining
+    rows = [row + [len(cols)] for row in rows]
+    cols = [col + [len(rows)] for col in cols]
 
     iterate_through(grid, rows, cols)
 
