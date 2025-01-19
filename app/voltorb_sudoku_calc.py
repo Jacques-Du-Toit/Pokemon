@@ -1,3 +1,6 @@
+import copy
+
+
 def display(grid: list[list[str]]) -> None:
     for row in grid:
         print(row)
@@ -7,7 +10,7 @@ def check_for_no_bombs(grid: list[list[str]], rows: list[list[int]], cols: list[
     """Checks if any rows or column contain no bombs - indicating they should reveal all the spaces left"""
     for r, row in enumerate(rows):
         if row[1] == 0:
-            grid[r] = ['_'] * len(cols)
+            grid[r] = ['_' if val.startswith('B/') else val for val in grid[r]]
             display(grid)
             exit(0)
 
@@ -28,8 +31,11 @@ def update_rows_cols(grid: list[list[str]], rows: list[list[int]], cols: list[li
                 cols[c][0] -= int(val)
 
             elif val == 'B/':
+                grid[r][c] = 'B'
                 rows[r][1] -= 1
                 cols[c][1] -= 1
+                rows[r][2] -= 1
+                cols[c][2] -= 1
                 check_for_no_bombs(grid, rows, cols)
 
 
@@ -55,21 +61,16 @@ def val_checker(grid: list[list[str]], rows: list[list[int]], cols: list[list[in
     """Inputs what values are possible at each point in the grid"""
     for r, row in enumerate(rows):
         points = row[0]
-        spaces = len(cols) - row[1]
-        try:
-            possible_vals = find_possible_values(points, spaces, index=r, line='row')
-        except:
-            print(r)
-            print(row)
-            print(points)
-            print(len(cols))
-            exit(0)
+        spaces = row[2] - row[1]
+        possible_vals = find_possible_values(points, spaces, index=r, line='row')
         for c, val in enumerate(grid[r]):
             if val == '?':
-                grid[r][c] = '/'.join(possible_vals)
+                grid[r][c] = 'B/' + '/'.join(possible_vals)
+            elif val.isdigit() or val == 'B':
+                pass
             else:
                 old_vals = val.split('/')
-                grid[r][c] = '/'.join(set(old_vals).intersection(possible_vals))
+                grid[r][c] = 'B/' + '/'.join(set(old_vals).intersection(possible_vals))
 
     for c, col in enumerate(cols):
         points = col[0]
@@ -79,20 +80,33 @@ def val_checker(grid: list[list[str]], rows: list[list[int]], cols: list[list[in
             val = grid[r_i][c]
             if grid[r_i][c] == '?':
                 grid[r_i][c] = 'B/' + '/'.join(possible_vals)
+            elif val.isdigit() or val == 'B':
+                pass
             else:
                 old_vals = val.split('/')
                 grid[r_i][c] = 'B/' + '/'.join(set(old_vals).intersection(possible_vals))
 
+
     display(grid)
+    print('=================================================')
 
 
 def iterate_through(grid: list[list[str]], rows: list[list[int]], cols: list[list[int]]):
-    while True:
-        # Do this first so we update the rows and values with points we already know
+    # Add the number of spaces remaining
+    rows = [row + [len(cols)] for row in rows]
+    cols = [col + [len(rows)] for col in cols]
+
+    before = copy.deepcopy(grid)
+
+    # Do this first so we update the rows and values with points we already know
+    update_rows_cols(grid, rows, cols)
+    check_for_no_bombs(grid, rows, cols)
+    val_checker(grid, rows, cols)
+
+    while before != grid:
+        before = copy.deepcopy(grid)
         update_rows_cols(grid, rows, cols)
-
         check_for_no_bombs(grid, rows, cols)
-
         val_checker(grid, rows, cols)
 
 
