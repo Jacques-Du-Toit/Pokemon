@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from tabulate import tabulate
+import os
 
 
 def dmg_calc(atk: float, defs: float, type_mult: float) -> float:
@@ -73,7 +74,7 @@ def one_vs_one(poke1: pd.Series, poke2: pd.Series, chart: pd.DataFrame) -> float
     return turns_won_by(hits_to_kill_1, hits_to_kill_2, poke1['Speed'], poke2['Speed'])
 
 
-def battle_pokemon(pokedex: pd.DataFrame):
+def battle_pokemon(pokedex: pd.DataFrame, path: str):
     df = pokedex[['Name', 'Form', 'Types', 'HP', 'Attack', 'Defense', 'Sp. Atk', 'Sp. Def', 'Speed', 'Total']].copy()
     chart = pd.read_csv('resources/type_charts/chart.csv', index_col=0)
 
@@ -102,9 +103,16 @@ def battle_pokemon(pokedex: pd.DataFrame):
             matchups.append([poke2['Name'], poke1['Name'], -score])
 
     matchups = pd.DataFrame(columns=['Name 1', 'Name 2', 'Score'], data=matchups)
-    matchups.to_csv('resources/poke_matchups.csv', index=False)
+    matchups.to_csv(path, index=False)
+    return matchups
 
-    print(tabulate(df.sort_values(by=['Score'], ascending=False), headers='keys'))
+
+def find_next_best(matchups: pd.DataFrame, min_score: int) -> str:
+    """Returns the next best pokemon by adding scores of how uniquely good a pokemon is against other pokemon"""
+    beaten_by = matchups.groupby('Name 2')['Name 1'].nunique().reset_index(name='beaten by')
+    df = matchups.loc[matchups['Score'] > 0, ['Name 1', 'Name 2']].merge(beaten_by, how='outer')
+    df['score'] =  1/ df['beaten by']
+    return df.groupby('Name 1')['score'].sum().idxmax()
 
 
 def best_team(matchups: pd.DataFrame, team: list[str] = None, exclude: list[str] = None, min_score: int = 1) -> list[str]:
@@ -116,24 +124,16 @@ def best_team(matchups: pd.DataFrame, team: list[str] = None, exclude: list[str]
         df = df[~df['Name 1'].isin(exclude)]
 
     # We only care about counters
-    df = df[df['Score'] > 0]
+    df = df[df['Score'] > min_score]
 
     for poke in team:
-        counters = df.loc[(df['Name 1'] == poke) & (df['Score'] >= min_score), 'Name 2'].unique()
+        counters = df.loc[(df['Name 1'] == poke) & (df['Score'] > min_score), 'Name 2'].unique()
         df = df[(df['Name 1'] != poke) & (~df['Name 2'].isin(counters))]
 
     while len(team) < 6:
-
-        num_counters = df.loc[df['Score'] >= min_score, 'Name 1'].value_counts()
-        pokes_with_most = num_counters[num_counters == num_counters.max()]
-        if len(pokes_with_most) == 1:
-            next_best = pokes_with_most.index[0]
-        else:
-            next_best = df[df['Name 1'].isin(pokes_with_most.index)].groupby('Name 1')['Score'].mean().idxmax()
-
+        next_best = find_next_best(df, min_score)
         team.append(next_best)
-
-        counters = df.loc[(df['Name 1'] == next_best) & (df['Score'] >= min_score), 'Name 2'].unique()
+        counters = df.loc[(df['Name 1'] == next_best) & (df['Score'] > min_score), 'Name 2'].unique()
         df = df[(df['Name 1'] != next_best) & (~df['Name 2'].isin(counters))]
 
     return team
@@ -180,6 +180,10 @@ def poke_replace(team: list[str], new_poke: str, matchups: pd.DataFrame, pokedex
     Returns:
         None
     """
+    possible_pokes = matchups['Name 1'].unique()
+    if new_poke not in possible_pokes:
+        raise ValueError(f'{new_poke} not a valid pokemon - right spelling/captialisation/game?')
+
     # Evaluate the current team's performance
     ratio, median, mean, loses_to = eval_team(team, matchups, pokedex)
 
@@ -210,25 +214,20 @@ def display(df: pd.DataFrame) -> None:
 
 
 def main():
-    pokedex = pd.read_csv('resources/pokedexes/platinum_pokedex.csv')
-    matchups = pd.read_csv('resources/poke_matchups.csv')
+    game = 'heartgold_soulsilver'
+    pokedex = pd.read_csv(f'resources/pokedexes/{game}_pokedex.csv')
 
-    battle_pokemon(pokedex)
+    matchup_path = f'resources/poke_matchups/{game}_matchups.csv'
+    if os.path.isfile(matchup_path):
+        matchups = pd.read_csv(matchup_path)
+    else:
+        matchups = battle_pokemon(pokedex, matchup_path)
 
-    print(best_team(matchups, min_score=1))
-    print(best_team(matchups, min_score=2))
-    print(best_team(matchups, min_score=3))
-    print(best_team(matchups, min_score=4))
-    print(best_team(matchups, min_score=5))
-    print(best_team(matchups, min_score=6))
-    print(best_team(matchups, min_score=10))
+    team = ['Totodile', 'Sentret', 'Pidgey', 'Rattata', 'Hoothoot', 'Bellsprout']
 
-    #display(poke_replace(['Turtwig', 'Bidoof', 'Starly', 'Zubat', 'Graveler', 'Psyduck'],
-    #             'shinx', matchups, pokedex))
+    find_counters(team, 'Caterpie', matchups)
 
-    #  find_counters(['Infernape', 'Bidoof', 'Starly', 'Zubat', 'Graveler', 'Psyduck'], 'Palkia', matchups)
-
-
+    display(poke_replace(team,'Onix', matchups, pokedex))
 
 
 if __name__ == "__main__":
