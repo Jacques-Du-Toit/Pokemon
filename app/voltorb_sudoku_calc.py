@@ -86,7 +86,6 @@ def val_checker(grid: list[list[str]], rows: list[list[int]], cols: list[list[in
                 old_vals = val.split('/')
                 grid[r_i][c] = 'B/' + '/'.join(set(old_vals).intersection(possible_vals))
 
-
     display(grid)
     print('=================================================')
 
@@ -108,7 +107,6 @@ def iterate_through(grid: list[list[str]], rows: list[list[int]], cols: list[lis
         update_rows_cols(grid, rows, cols)
         check_for_no_bombs(grid, rows, cols)
         val_checker(grid, rows, cols)
-
 
 
 def main():
