@@ -28,17 +28,22 @@ def find_possible_values(points: int, spaces: int, low: int = 1, high: int = 3) 
 
 def update_val(grid: list[list[str]], row_index: int, col_index: int, possible_vals: list[str]) -> None:
     val = grid[row_index][col_index]
-    possible_vals = ['B'] + possible_vals
+    all_possible = set(possible_vals)
+    all_possible.add('B')
+
     if val == '?':
-        possible_vals.sort()
-        grid[row_index][col_index] = '/'.join(possible_vals)
+        # Update grid with all possible values, sorted
+        grid[row_index][col_index] = '/'.join(sorted(all_possible))
     elif val.isdigit() or val == 'B':
-        pass
+        # Do nothing if it's a digit or 'B'
+        return
     else:
-        old_vals = val.split('/')
-        possible_vals = list(set(old_vals).intersection(['B'] + possible_vals))
-        possible_vals.sort()
-        grid[row_index][col_index] = '/'.join(possible_vals)
+        # Intersect current values with possible values
+        old_vals = set(val.split('/'))
+        updated_vals = old_vals.intersection(all_possible)
+        # Only update grid if there's a change
+        if updated_vals != old_vals:
+            grid[row_index][col_index] = '/'.join(sorted(updated_vals))
 
 
 def naive_checker(grid: list[list[str]], rows: list[list[int]], cols: list[list[int]]) -> bool:
@@ -123,7 +128,7 @@ def shallow_future(grid: list[list[str]], rows: list[list[int]], cols: list[list
                 continue
             possible_vals = val.split('/')
             for pos_val in possible_vals:
-                possible_grid = deepcopy(grid)
+                possible_grid = [row[:] for row in grid]
                 possible_grid[r][c] = pos_val
                 if False:
                     display(grid)
@@ -159,7 +164,7 @@ def update_final(grid: list[list[str]]) -> None:
                         best_co_ords = [r+1, c+1]
         print(f'{best_ratio=:.2f}, {best_co_ords=}')
 
-        clean = deepcopy(final)
+        clean = [row[:] for row in final]
         for r, row in enumerate(clean):
             for c, val in enumerate(row):
                 if len(val) == 1:
@@ -178,7 +183,7 @@ def iterate(grid: list[list[str]], rows: list[list[int]], cols: list[list[int]],
         return False
 
     while before != grid:
-        before = deepcopy(grid)
+        before = [row[:] for row in grid]
         if not naive_checker(grid, rows, cols):
             return False
 
@@ -195,7 +200,7 @@ def shallow_search(grid: list[list[str]], rows: list[list[int]], cols: list[list
 
     while before != grid:
         shallow_future(grid, rows, cols, level)
-        before = deepcopy(grid)
+        before = [row[:] for row in grid]
 
 
 def main():
@@ -234,4 +239,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    import cProfile
+
+    cProfile.run('main()')
+
+    #main()
