@@ -1,8 +1,3 @@
-from copy import deepcopy
-from time import sleep
-from functools import lru_cache
-
-
 def display(grid: list[iter]) -> None:
     for row in grid:
         print(row)
@@ -11,7 +6,7 @@ def display(grid: list[iter]) -> None:
 def is_valid_points_spaces(points: int, spaces: int, low: int = 1, high: int = 3) -> bool:
     return (points / spaces >= low) and (points / spaces <= high)
 
-@lru_cache(maxsize=None)
+
 def find_possible_values(points: int, spaces: int, low: int = 1, high: int = 3) -> list[str]:
     """Determines the possible values a space can have from the points and spaces left in that line"""
     if spaces == 0:
@@ -96,7 +91,6 @@ def cancel_out_bombs_points(grid: list[list[str]], rows: list[list[int]], cols: 
             if sum([int(val) for val in vals if val.isdigit()]) != row[0]:
                 return False
 
-
     for c, col in enumerate(cols):
         vals = [grid[r][c] for r in range(len(rows))]
         num_bombs = vals.count('B')
@@ -114,41 +108,46 @@ def cancel_out_bombs_points(grid: list[list[str]], rows: list[list[int]], cols: 
     return True
 
 
-def shallow_future(grid: list[list[str]], rows: list[list[int]], cols: list[list[int]], level: int) -> bool:
+def grid_complete(grid: list[list[str]]) -> bool:
+    return not any(any('/' in val for val in row) for row in grid)
+
+
+def all_futures(grid: list[list[str]], rows: list[list[int]], cols: list[list[int]]) -> bool:
     """
     Only checks the first branch down
     """
+    if not reduce(grid, rows, cols):
+        return False
+
     for r, row in enumerate(grid):
         for c, _ in enumerate(row):
             val = grid[r][c]
-            if not naive_checker(grid, rows, cols):
-                return False
             if val == 'B' or val.isdigit():
                 # We already know these
                 continue
             possible_vals = val.split('/')
+            completed_futures = 0
             for pos_val in possible_vals:
                 possible_grid = [row[:] for row in grid]
                 possible_grid[r][c] = pos_val
-                if False:
-                    display(grid)
-                    print('====================================')
-                    display(possible_grid)
-                    print(f'{r=}, {c=}, {val=}, {pos_val=}')
-                    sleep(0.5)
-                    print('====================================')
-                    print('====================================')
-                if not iterate(possible_grid, rows, cols, level-1):
+                if not all_futures(possible_grid, rows, cols):
                     grid[r][c] = val.replace(pos_val + '/', '').rstrip('/')
                     if grid[r][c] == 'B' or grid[r][c].isdigit():
                         # We have found what value this needs to be in this future
                         break
+                else:
+                    completed_futures += 1
+
+            if completed_futures == len(grid[r][c].split('/')):
+                # If every future from this index has a completed grid, we don't need to keep checking
+                return True
+
 
     return True
 
 
-def update_final(grid: list[list[str]]) -> None:
-    if not any(any('/' in val for val in row) for row in grid):
+def update_final(grid: list[list[str]]) -> bool:
+    if grid_complete(grid):
         global final
 
         best_ratio = 1
@@ -169,13 +168,13 @@ def update_final(grid: list[list[str]]) -> None:
             for c, val in enumerate(row):
                 if len(val) == 1:
                     clean[r][c] = list(val.keys())[0]
-
-        print('========================================')
         display(clean)
         print('========================================')
+        return True
+    return False
 
 
-def iterate(grid: list[list[str]], rows: list[list[int]], cols: list[list[int]], depth: int = 0) -> bool:
+def reduce(grid: list[list[str]], rows: list[list[int]], cols: list[list[int]], depth: int = 0) -> bool:
     before = [row[:] for row in grid]
 
     # Do this first so we update the rows and values with points we already know
@@ -187,20 +186,8 @@ def iterate(grid: list[list[str]], rows: list[list[int]], cols: list[list[int]],
         if not naive_checker(grid, rows, cols):
             return False
 
-    if depth > 0:
-        shallow_search(grid, rows, cols, depth)
-        update_final(grid)
-
+    update_final(grid)
     return True
-
-
-def shallow_search(grid: list[list[str]], rows: list[list[int]], cols: list[list[int]], level: int):
-    before = [row[:] for row in grid]
-    shallow_future(grid, rows, cols, level)
-
-    while before != grid:
-        shallow_future(grid, rows, cols, level)
-        before = [row[:] for row in grid]
 
 
 def main():
@@ -213,34 +200,30 @@ def main():
     ]
 
     grid = [
-        ['?', '?', '3', '?', '?'],
-        ['?', '?', '?', '?', '?'],
-        ['?', '?', '?', '?', '?'],
-        ['?', '?', '?', '?', '?'],
-        ['?', '?', '?', '?', '?']
+        ['?', '?', '?', '1', '?'],
+        ['?', '?', '?', '1', '?'],
+        ['?', '?', '?', '1', '?'],
+        ['?', '?', '?', '2', '?'],
+        ['?', '?', '?', '1', '?']
     ]
 
     rows = [
-        [6, 1],
-        [6, 1],
-        [4, 3],
         [5, 2],
+        [7, 1],
+        [3, 2],
+        [4, 2],
         [6, 1]
     ]
+
     cols = [
-        [6, 1], [4, 1], [6, 1], [4, 3], [7, 2]
+        [5, 2], [5, 2], [7, 1], [6, 0], [2, 3]
     ]
 
     global final
     final = [[{} for _ in range(len(cols))] for _ in range(len(rows))]
 
-    for depth in range(1, 100):
-        iterate(grid, rows, cols, depth)
+    all_futures(grid, rows, cols)
 
 
 if __name__ == '__main__':
-    import cProfile
-
-    cProfile.run('main()')
-
-    #main()
+    main()
