@@ -27,13 +27,17 @@ def find_possible_values(points: int, spaces: int, low: int = 1, high: int = 3) 
 
 def update_val(grid: list[list[str]], row_index: int, col_index: int, possible_vals: list[str]) -> None:
     val = grid[row_index][col_index]
+    possible_vals = ['B'] + possible_vals
     if val == '?':
-        grid[row_index][col_index] = '/'.join(['B'] + possible_vals)
+        possible_vals.sort()
+        grid[row_index][col_index] = '/'.join(possible_vals)
     elif val.isdigit() or val == 'B':
         pass
     else:
         old_vals = val.split('/')
-        grid[row_index][col_index] = '/'.join(set(old_vals).intersection(['B'] + possible_vals))
+        possible_vals = list(set(old_vals).intersection(['B'] + possible_vals))
+        possible_vals.sort()
+        grid[row_index][col_index] = '/'.join(possible_vals)
 
 
 def naive_checker(grid: list[list[str]], rows: list[list[int]], cols: list[list[int]]) -> bool:
@@ -175,21 +179,22 @@ def iterate(grid: list[list[str]], rows: list[list[int]], cols: list[list[int]])
         if not naive_checker(grid, rows, cols):
             return False
 
-    if not all_futures(grid, rows, cols):
-        return False
+    if True:
+        if not all_futures(grid, rows, cols):
+            return False
 
-    update_final(grid)
+        update_final(grid)
 
     return True
 
 
 def main():
     grid = [
-        ['?', '?', '?', '?', '?'],
-        ['?', '?', '?', '?', '?'],
-        ['?', '?', '?', '?', '?'],
-        ['?', '?', '?', '?', '?'],
-        ['?', '?', '?', '?', '?']
+        ['2', '?', '?', '?', '?'],
+        ['1', '?', '?', '?', '?'],
+        ['1', '?', '?', '?', '?'],
+        ['2', '?', '?', '?', '?'],
+        ['1', '?', '?', '?', '?']
     ]
 
     rows = [
@@ -211,3 +216,19 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+    """
+    ['B', 'B', '2', '1', '2']
+    ['B', '2', 'B', '1', '1']
+    ['1', '2', '1', '2', 'B']
+    ['1', '2', 'B/1', 'B/3', 'B/1']
+    ['1', '2/1', 'B/1', 'B/', 'B/1']
+    r=3, c=1, val='2/1', pos_val='2'
+    ====================================
+    ====================================
+    ['B', 'B', '2', '1', '2']
+    ['B', '2', 'B', '1', '1']
+    ['1', '2', '1', '2', 'B']
+    ['1', '2', 'B/', 'B/', 'B/']
+    ['1', '1', 'B/1', 'B/', 'B/1']
+    """
