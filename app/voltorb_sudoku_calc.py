@@ -108,11 +108,9 @@ def cancel_out_bombs_points(grid: list[list[str]], rows: list[list[int]], cols: 
     return True
 
 
-def all_futures(grid: list[list[str]], rows: list[list[int]], cols: list[list[int]]) -> bool:
+def shallow_future(grid: list[list[str]], rows: list[list[int]], cols: list[list[int]], level: int) -> bool:
     """
-    After the possible values per line are determined,
-    this tries every possible combination of values to see if there are any paradoxes.
-    It removes any values that cause paradoxes
+    Only checks the first branch down
     """
     for r, row in enumerate(grid):
         for c, _ in enumerate(row):
@@ -126,16 +124,7 @@ def all_futures(grid: list[list[str]], rows: list[list[int]], cols: list[list[in
             for pos_val in possible_vals:
                 possible_grid = deepcopy(grid)
                 possible_grid[r][c] = pos_val
-                if False:
-                    display(grid)
-                    print('====================================')
-                    display(possible_grid)
-                    print(f'{r=}, {c=}, {val=}, {pos_val=}')
-                    sleep(1)
-                    print('====================================')
-                    print('====================================')
-
-                if not iterate(possible_grid, rows, cols):
+                if not iterate(possible_grid, rows, cols, level-1):
                     grid[r][c] = val.replace(pos_val + '/', '').rstrip('/')
                     if grid[r][c] == 'B' or grid[r][c].isdigit():
                         # We have found what value this needs to be in this future
@@ -148,9 +137,19 @@ def update_final(grid: list[list[str]]) -> None:
     if not any(any('/' in val for val in row) for row in grid):
         global final
 
+        best_ratio = 1
+        best_co_ords = []
         for r, row in enumerate(grid):
             for c, val in enumerate(row):
                 final[r][c][val] = final[r][c].get(val, 0) + 1
+                vals = final[r][c].values()
+                if len(vals) > 1:
+                    ratio = final[r][c].get('B', 0) / sum(vals)
+                    if ratio < best_ratio:
+                        best_ratio = ratio
+                        best_co_ords = [r+1, c+1]
+        print(f'{best_ratio=:.2f}, {best_co_ords=}')
+
 
         clean = deepcopy(final)
         for r, row in enumerate(clean):
@@ -158,16 +157,12 @@ def update_final(grid: list[list[str]]) -> None:
                 if len(val) == 1:
                     clean[r][c] = list(val.keys())[0]
 
-        print('=============================================')
-        display(grid)
-        print('=============================================')
+        print('========================================')
         display(clean)
-        print('=============================================')
-        #sleep(1)
+        print('========================================')
 
 
-
-def iterate(grid: list[list[str]], rows: list[list[int]], cols: list[list[int]]):
+def iterate(grid: list[list[str]], rows: list[list[int]], cols: list[list[int]], depth: int = 0) -> bool:
     before = deepcopy(grid)
 
     # Do this first so we update the rows and values with points we already know
@@ -179,22 +174,29 @@ def iterate(grid: list[list[str]], rows: list[list[int]], cols: list[list[int]])
         if not naive_checker(grid, rows, cols):
             return False
 
-    if True:
-        if not all_futures(grid, rows, cols):
-            return False
-
+    for level in range(depth):
+        shallow_search(grid, rows, cols, level)
         update_final(grid)
 
     return True
 
 
+def shallow_search(grid: list[list[str]], rows: list[list[int]], cols: list[list[int]], level: int):
+    before = deepcopy(grid)
+    shallow_future(grid, rows, cols, level)
+
+    while before != grid:
+        shallow_future(grid, rows, cols, level)
+        before = deepcopy(grid)
+
+
 def main():
     grid = [
-        ['2', '?', '?', '?', '?'],
-        ['1', '?', '?', '?', '?'],
-        ['1', '?', '?', '?', '?'],
-        ['2', '?', '?', '?', '?'],
-        ['1', '?', '?', '?', '?']
+        ['2', '?', '?', '?', '2'],
+        ['1', '1', '?', '2', '1'],
+        ['1', '?', '?', '?', '1'],
+        ['2', '?', '?', '?', '2'],
+        ['1', '1', '1', '?', '?']
     ]
 
     rows = [
@@ -211,24 +213,8 @@ def main():
     global final
     final = [[{} for _ in range(len(cols))] for _ in range(len(rows))]
 
-    iterate(grid, rows, cols)
+    iterate(grid, rows, cols, 100)
 
 
 if __name__ == '__main__':
     main()
-
-    """
-    ['B', 'B', '2', '1', '2']
-    ['B', '2', 'B', '1', '1']
-    ['1', '2', '1', '2', 'B']
-    ['1', '2', 'B/1', 'B/3', 'B/1']
-    ['1', '2/1', 'B/1', 'B/', 'B/1']
-    r=3, c=1, val='2/1', pos_val='2'
-    ====================================
-    ====================================
-    ['B', 'B', '2', '1', '2']
-    ['B', '2', 'B', '1', '1']
-    ['1', '2', '1', '2', 'B']
-    ['1', '2', 'B/', 'B/', 'B/']
-    ['1', '1', 'B/1', 'B/', 'B/1']
-    """
