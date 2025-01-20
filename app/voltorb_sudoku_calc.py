@@ -1,7 +1,7 @@
 import copy
 
 
-def display(grid: list[list[str]]) -> None:
+def display(grid: list[iter]) -> None:
     for row in grid:
         print(row)
 
@@ -122,9 +122,9 @@ def all_futures_checker(
     # Don't want it changing the rows or cols
     check_rows = copy.deepcopy(rows)
     check_cols = copy.deepcopy(cols)
-    for r, row in enumerate(rows):
-        for c, val in enumerate(grid[r]):
-            if val == 'B' or val.isdigit():
+    for r, row in enumerate(grid):
+        for c, val in enumerate(row):
+            if val == 'B' or val.isdigit() or ('/' in val and val[:-1].isdigit()):
                 # We already know these
                 continue
             possible_vals = val.split('/')
@@ -133,6 +133,8 @@ def all_futures_checker(
                 possible_grid[r][c] = pos_val + '/'
                 if not iterate_through(possible_grid, check_rows, check_cols, og_rows, og_cols):
                     grid[r][c] = val.replace(pos_val + '/', '')
+                    if grid[r][c] == 'B' or grid[r][c].isdigit():
+                        break
 
 
 def iterate_through(
@@ -156,6 +158,8 @@ def iterate_through(
             return False
 
     all_futures_checker(grid, rows, cols, og_rows, og_cols)
+    if not check_points_bombs(grid, og_rows, og_cols):
+        return False
 
     if not any(any('/' in val for val in row) for row in grid):
         global all_possible
@@ -164,11 +168,17 @@ def iterate_through(
             display(grid)
             print('=============================================')
             indexes = [[r_i, c_i] for r_i in range(len(rows)) for c_i in range(len(cols))]
-            final = [['' for _ in range(len(cols))] for _ in range(len(rows))]
+            final = [[{} for _ in range(len(cols))] for _ in range(len(rows))]
 
             for index in indexes:
-                for pos_grid in all_possible[1:]:
-                    final[index[0]][index[1]] += pos_grid[index[0]][index[1]]
+                for pos_grid in all_possible:
+                    val = pos_grid[index[0]][index[1]]
+                    final[index[0]][index[1]][val] = final[index[0]][index[1]].get(val, 0) + 1
+
+            for r, row in enumerate(final):
+                for c, val in enumerate(row):
+                    if len(val) == 1:
+                        final[r][c] = list(val.keys())[0]
 
             display(final)
             print('=============================================')
@@ -180,21 +190,29 @@ def iterate_through(
 def main():
     grid = [
         ['?', '?', '?', '?', '?'],
-        ['?', '?', '2/', '?', '?'],
-        ['?', '3/', '?', '?', '?'],
-        ['?', 'B/', '?', '?', '?'],
-        ['?', '3/', '?', '3/', '?']
+        ['?', '?', '?', '?', '?'],
+        ['?', '?', '?', '?', '?'],
+        ['?', '?', '?', '?', '?'],
+        ['?', '?', '?', '?', '?']
     ]
 
+    grid = [
+        ['?', '?', '?', '1/', '1/'],
+        ['?', '?', '?', '?', '2/'],
+        ['2/', '1/', '1/', '2/', '1/'],
+        ['?', '?', '?', '?', '1/'],
+        ['?', '?', '?', '?', '1/']
+    ]
+    
     rows = [
-        [5, 1],
-        [4, 2],
-        [7, 1],
+        [4, 1],
+        [6, 1],
+        [7, 0],
         [2, 3],
-        [8, 1]
+        [6, 1]
     ]
     cols = [
-        [2, 3], [8, 2], [5, 1], [6, 1], [5, 1]
+        [5, 1], [4, 1], [2, 3], [8, 1], [6, 0]
     ]
 
     og_rows = copy.deepcopy(rows)
