@@ -1,5 +1,6 @@
 from copy import deepcopy
 from time import sleep
+from functools import lru_cache
 
 
 def display(grid: list[iter]) -> None:
@@ -10,7 +11,7 @@ def display(grid: list[iter]) -> None:
 def is_valid_points_spaces(points: int, spaces: int, low: int = 1, high: int = 3) -> bool:
     return (points / spaces >= low) and (points / spaces <= high)
 
-
+@lru_cache(maxsize=None)
 def find_possible_values(points: int, spaces: int, low: int = 1, high: int = 3) -> list[str]:
     """Determines the possible values a space can have from the points and spaces left in that line"""
     if spaces == 0:
@@ -124,6 +125,14 @@ def shallow_future(grid: list[list[str]], rows: list[list[int]], cols: list[list
             for pos_val in possible_vals:
                 possible_grid = deepcopy(grid)
                 possible_grid[r][c] = pos_val
+                if False:
+                    display(grid)
+                    print('====================================')
+                    display(possible_grid)
+                    print(f'{r=}, {c=}, {val=}, {pos_val=}')
+                    sleep(0.5)
+                    print('====================================')
+                    print('====================================')
                 if not iterate(possible_grid, rows, cols, level-1):
                     grid[r][c] = val.replace(pos_val + '/', '').rstrip('/')
                     if grid[r][c] == 'B' or grid[r][c].isdigit():
@@ -150,7 +159,6 @@ def update_final(grid: list[list[str]]) -> None:
                         best_co_ords = [r+1, c+1]
         print(f'{best_ratio=:.2f}, {best_co_ords=}')
 
-
         clean = deepcopy(final)
         for r, row in enumerate(clean):
             for c, val in enumerate(row):
@@ -163,7 +171,7 @@ def update_final(grid: list[list[str]]) -> None:
 
 
 def iterate(grid: list[list[str]], rows: list[list[int]], cols: list[list[int]], depth: int = 0) -> bool:
-    before = deepcopy(grid)
+    before = [row[:] for row in grid]
 
     # Do this first so we update the rows and values with points we already know
     if not naive_checker(grid, rows, cols):
@@ -174,15 +182,15 @@ def iterate(grid: list[list[str]], rows: list[list[int]], cols: list[list[int]],
         if not naive_checker(grid, rows, cols):
             return False
 
-    for level in range(depth):
-        shallow_search(grid, rows, cols, level)
+    if depth > 0:
+        shallow_search(grid, rows, cols, depth)
         update_final(grid)
 
     return True
 
 
 def shallow_search(grid: list[list[str]], rows: list[list[int]], cols: list[list[int]], level: int):
-    before = deepcopy(grid)
+    before = [row[:] for row in grid]
     shallow_future(grid, rows, cols, level)
 
     while before != grid:
@@ -192,28 +200,37 @@ def shallow_search(grid: list[list[str]], rows: list[list[int]], cols: list[list
 
 def main():
     grid = [
-        ['2', '?', '?', '?', '2'],
-        ['1', '1', '?', '2', '1'],
-        ['1', '?', '?', '?', '1'],
-        ['2', '?', '?', '?', '2'],
-        ['1', '1', '1', '?', '?']
+        ['?', '?', '?', '?', '?'],
+        ['?', '?', '?', '?', '?'],
+        ['?', '?', '?', '?', '?'],
+        ['?', '?', '?', '?', '?'],
+        ['?', '?', '?', '?', '?']
+    ]
+
+    grid = [
+        ['?', '?', '3', '?', '?'],
+        ['?', '?', '?', '?', '?'],
+        ['?', '?', '?', '?', '?'],
+        ['?', '?', '?', '?', '?'],
+        ['?', '?', '?', '?', '?']
     ]
 
     rows = [
-        [4, 3],
-        [5, 1],
         [6, 1],
-        [6, 2],
-        [4, 1]
+        [6, 1],
+        [4, 3],
+        [5, 2],
+        [6, 1]
     ]
     cols = [
-        [7, 0], [4, 2], [4, 3], [4, 2], [6, 1]
+        [6, 1], [4, 1], [6, 1], [4, 3], [7, 2]
     ]
 
     global final
     final = [[{} for _ in range(len(cols))] for _ in range(len(rows))]
 
-    iterate(grid, rows, cols, 100)
+    for depth in range(1, 100):
+        iterate(grid, rows, cols, depth)
 
 
 if __name__ == '__main__':
