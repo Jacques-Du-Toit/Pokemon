@@ -162,27 +162,23 @@ def iterate_through(
         return False
 
     if not any(any('/' in val for val in row) for row in grid):
-        global all_possible
-        if grid not in all_possible:
-            all_possible.append(grid)
-            display(grid)
-            print('=============================================')
-            indexes = [[r_i, c_i] for r_i in range(len(rows)) for c_i in range(len(cols))]
-            final = [[{} for _ in range(len(cols))] for _ in range(len(rows))]
+        global final
 
-            for index in indexes:
-                for pos_grid in all_possible:
-                    val = pos_grid[index[0]][index[1]]
-                    final[index[0]][index[1]][val] = final[index[0]][index[1]].get(val, 0) + 1
+        for r, row in enumerate(grid):
+            for c, val in enumerate(row):
+                final[r][c][val] = final[r][c].get(val, 0) + 1
 
-            for r, row in enumerate(final):
-                for c, val in enumerate(row):
-                    if len(val) == 1:
-                        final[r][c] = list(val.keys())[0]
+        clean = copy.deepcopy(final)
+        for r, row in enumerate(clean):
+            for c, val in enumerate(row):
+                if len(val) == 1:
+                    clean[r][c] = list(val.keys())[0]
 
-            display(final)
-            print('=============================================')
-            print('=============================================')
+        print('=============================================')
+        display(grid)
+        print('=============================================')
+        display(clean)
+        print('=============================================')
 
     return True
 
@@ -197,23 +193,26 @@ def main():
     ]
 
     grid = [
-        ['?', '?', '?', '1/', '1/'],
-        ['?', '?', '?', '?', '2/'],
-        ['2/', '1/', '1/', '2/', '1/'],
-        ['?', '?', '?', '?', '1/'],
-        ['?', '?', '?', '?', '1/']
+        ['?', '?', '1/', '1/', '1/'],
+        ['1/', '1/', '1/', '2/', '1/'],
+        ['3/', '?', '?', '?', '1/'],
+        ['1/', '?', '?', '?', '?'],
+        ['1/', '?', '?', '?', '?']
     ]
     
     rows = [
-        [4, 1],
+        [3, 2],
+        [6, 0],
+        [7, 2],
         [6, 1],
-        [7, 0],
-        [2, 3],
-        [6, 1]
+        [3, 2]
     ]
     cols = [
-        [5, 1], [4, 1], [2, 3], [8, 1], [6, 0]
+        [6, 1], [2, 3], [6, 1], [7, 1], [4, 1]
     ]
+
+    global final
+    final = [[{} for _ in range(len(cols))] for _ in range(len(rows))]
 
     og_rows = copy.deepcopy(rows)
     og_cols = copy.deepcopy(cols)
@@ -226,5 +225,5 @@ def main():
 
 
 if __name__ == '__main__':
-    all_possible = []
+    final = None
     main()
