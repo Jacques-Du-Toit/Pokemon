@@ -164,17 +164,11 @@ def iterate_through(
             display(grid)
             print('=============================================')
             indexes = [[r_i, c_i] for r_i in range(len(rows)) for c_i in range(len(cols))]
-            final = [['_'] * len(cols) for _ in range(len(rows))]
+            final = [['' for _ in range(len(cols))] for _ in range(len(rows))]
 
             for index in indexes:
-                val = all_possible[0][index[0]][index[1]]
-                same = True
                 for pos_grid in all_possible[1:]:
-                    if pos_grid[index[0]][index[1]] != val:
-                        same = False
-                        break
-                if same:
-                    final[index[0]][index[1]] = val
+                    final[index[0]][index[1]] += pos_grid[index[0]][index[1]]
 
             display(final)
             print('=============================================')
@@ -189,7 +183,7 @@ def main():
         ['?', '?', '2/', '?', '?'],
         ['?', '3/', '?', '?', '?'],
         ['?', 'B/', '?', '?', '?'],
-        ['?', '3/', '?', '?', '?']
+        ['?', '3/', '?', '3/', '?']
     ]
 
     rows = [
