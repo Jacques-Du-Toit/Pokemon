@@ -158,23 +158,30 @@ def update_final(grid: list[list[str]]) -> bool:
                 vals = final[r][c].values()
                 if len(vals) > 1:
                     ratio = final[r][c].get('B', 0) / sum(vals)
-                    if ratio < best_ratio:
+                    if ratio < best_ratio and (final[r][c].get('3', 0) > 0 or final[r][c].get('2', 0) or ratio == 0):
                         best_ratio = ratio
                         best_co_ords = [r+1, c+1]
-        print(f'{best_ratio=:.2f}, {best_co_ords=}')
 
+        certain = 0
         clean = [row[:] for row in final]
         for r, row in enumerate(clean):
             for c, val in enumerate(row):
                 if len(val) == 1:
-                    clean[r][c] = list(val.keys())[0]
+                    v = list(val.keys())[0]
+                    if v != 'B':
+                        certain += 1
+                    clean[r][c] = '_' + v + '_'
+                else:
+                    clean[r][c] = {key: round(v / sum(val.values()), 2) for key, v in val.items()}
+
+        print(f'{best_ratio=:.2f}, {best_co_ords=}, {certain=}')
         display(clean)
         print('========================================')
         return True
     return False
 
 
-def reduce(grid: list[list[str]], rows: list[list[int]], cols: list[list[int]], depth: int = 0) -> bool:
+def reduce(grid: list[list[str]], rows: list[list[int]], cols: list[list[int]]) -> bool:
     before = [row[:] for row in grid]
 
     # Do this first so we update the rows and values with points we already know
@@ -190,34 +197,15 @@ def reduce(grid: list[list[str]], rows: list[list[int]], cols: list[list[int]], 
     return True
 
 
-def main():
-    grid = [
-        ['?', '?', '?', '?', '?'],
-        ['?', '?', '?', '?', '?'],
-        ['?', '?', '?', '?', '?'],
-        ['?', '?', '?', '?', '?'],
-        ['?', '?', '?', '?', '?']
-    ]
-
-    grid = [
-        ['?', '?', '?', '1', '?'],
-        ['?', '?', '?', '1', '?'],
-        ['?', '?', '?', '1', '?'],
-        ['?', '?', '?', '2', '?'],
-        ['?', '?', '?', '1', '?']
-    ]
-
-    rows = [
-        [5, 2],
-        [7, 1],
-        [3, 2],
-        [4, 2],
-        [6, 1]
-    ]
-
-    cols = [
-        [5, 2], [5, 2], [7, 1], [6, 0], [2, 3]
-    ]
+def main(grid: list[list[str]] = None, rows: list[list[int]] = None, cols: list[list[int]] = None):
+    if not grid:
+        grid = [
+            ['?', '?', '?', '?', '?'],
+            ['?', '?', '?', '?', '?'],
+            ['?', '?', '?', '?', '?'],
+            ['?', '?', '?', '?', '?'],
+            ['?', '?', '?', '?', '?']
+        ]
 
     global final
     final = [[{} for _ in range(len(cols))] for _ in range(len(rows))]
@@ -226,4 +214,28 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    grid = [
+        ['?', '?', '1', '?', '?'],
+        ['?', '?', '?', '?', '?'],
+        ['?', '?', '?', '?', '?'],
+        ['?', '?', '2', '?', '?'],
+        ['?', '?', '?', '?', '?']
+    ]
+
+    rows = [
+        [5, 1],
+        [5, 2],
+        [6, 2],
+        [8, 1],
+        [1, 4]
+    ]
+
+    cols = [
+        [5, 2],
+        [5, 2],
+        [5, 1],
+        [4, 3],
+        [6, 2]
+    ]
+
+    main(grid, rows, cols)
