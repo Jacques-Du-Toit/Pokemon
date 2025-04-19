@@ -370,7 +370,12 @@ def check_team(chart: pd.DataFrame, team: list[str]) -> None:
         if len(left.columns) <= 0:
             print("Effective against all types")
             return
-    print(f"Warning - team is not effective against {left.columns}")
+    print(f"Team is not effective against {left.columns}")
+
+    left = left[left > 1]
+    recs = left.sum(axis=1)
+    recs = recs[recs > 0]
+    print(recs.sort_values(ascending=False))
 
 
 def find_best_counter(poke: str, team: list[str], matchups: pd.DataFrame) -> pd.DataFrame:
@@ -397,18 +402,13 @@ def load_charts():
     return chart, matchups
 
 
-
 def main():
     chart, matchups = load_charts()
 
-    #triangles = triangle_finder(matchups)
-
-    team = team_of_six(matchups)
-    print(team)
+    team = ['flying', 'dragon', 'water', 'dark', 'ice', 'fighting']
 
     check_team(chart, team)
 
-    print(find_best_counter("electric/flying", team, matchups))
 
 if __name__ == '__main__':
     main()
